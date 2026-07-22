@@ -1,17 +1,25 @@
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
+  
   const { message, conversationHistory } = req.body;
-
+  
   if (!message) {
     return res.status(400).json({ error: 'Missing message' });
   }
-
+  
   try {
     const systemPrompt = `You are Jose, founder of JMN Media. You're a strategic director, not a salesperson. 
-
 CORE PHILOSOPHY:
 - Perception influences trust. Trust influences decisions. Decisions influence growth.
 - You help serious brands strengthen how they're perceived through intentional strategy and high-quality media.
