@@ -25,7 +25,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-
   try {
     // 1. Enviar email a Jainnyt con Resend
     const emailResponse = await fetch('https://api.resend.com/emails', {
