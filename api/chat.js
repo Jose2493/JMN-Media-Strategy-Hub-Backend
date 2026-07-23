@@ -67,7 +67,16 @@ TONE: Confident, smart, strategic. Not desperate. Not salesy. Like talking to a 
       })
     });
     const data = await response.json();
-    const reply = data.content[0]?.text || 'Let me think about that...';
+
+if (!response.ok) {
+  console.error('Anthropic API error:', response.status, JSON.stringify(data));
+  return res.status(500).json({
+    error: 'Anthropic API error',
+    details: data.error?.message || 'Unknown error'
+  });
+}
+
+const reply = data.content?.[0]?.text || 'Let me think about that...';
     return res.status(200).json({
       success: true,
       reply: reply
