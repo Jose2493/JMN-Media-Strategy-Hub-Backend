@@ -78,36 +78,37 @@ export default async function handler(req, res) {
       console.error('Resend error:', await emailResponse.text());
     }
 
-    // 2. Guardar en SuiteDash
-    const suiteDashResponse = await fetch(
-      `https://api.suitedash.com/contacts?public_key=${process.env.SUITEDASH_PUBLIC_ID}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.SUITEDASH_SECRET_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          first_name: name.split(' ')[0],
-          last_name: name.split(' ').slice(1).join(' ') || '',
-          email: email,
-          company: business,
-          notes: `JMN Strategy Hub Lead\n\nLead Score: ${leadScore}/100\nDiagnosis: ${diagnosis}\n\nResponses:\n- Perception: ${responses.perception}\n- Content Gap: ${responses.gap}\n- Goal: ${responses.goal}\n- Urgency: ${responses.urgency}\n- Content Frequency: ${responses.contentgap}\n- Ready to Invest: ${responses.decision}\n\nCreated: ${new Date().toISOString()}`
-        })
+   // 2. Guardar en SuiteDash (no debe tumbar la respuesta si falla)
+    try {
+      const suiteDashResponse = await fetch(
+        'https://app.suitedash.com/secure-api/contacts',
+        {
+          method: 'POST',
+          headers: {
+            'X-Public-ID': process.env.SUITEDASH_PUBLIC_ID,
+            'X-Secret-Key': process.env.SUITEDASH_SECRET_KEY,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            first_name: name.split(' ')[0],
+            last_name: name.split(' ').slice(1).join(' ') || '',
+            email: email,
+            company: business,
+            notes: `JMN Strategy Hub Lead\n\nLead Score: ${leadScore}/100\nDiagnosis: ${diagnosis}\n\nResponses:\n- Perception: ${responses.perception}\n- Content Gap: ${responses.gap}\n- Goal: ${responses.goal}\n- Urgency: ${responses.urgency}\n- Content Frequency: ${responses.contentgap}\n- Ready to Invest: ${responses.decision}\n\nCreated: ${new Date().toISOString()}`
+          })
+        }
+      );
+
+      if (!suiteDashResponse.ok) {
+        console.error('SuiteDash error:', suiteDashResponse.status, await suiteDashResponse.text());
       }
-    );
+    } catch (suiteDashError) {
+      console.error('SuiteDash request failed:', suiteDashError.message);
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Lead saved successfully',
       leadScore
     });
-
-  } catch (error) {
-    console.error('Error:', error);
-    return res.status(500).json({
-      error: 'Failed to save lead',
-      details: error.message
-    });
-  }
-}
