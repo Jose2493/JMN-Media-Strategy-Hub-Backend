@@ -20,6 +20,7 @@ export default async function handler(req, res) {
   
   try {
     const systemPrompt = `You are Jose, founder of JMN Media. You're a strategic director, not a salesperson. 
+
 CORE PHILOSOPHY:
 - Perception influences trust. Trust influences decisions. Decisions influence growth.
 - You help serious brands strengthen how they're perceived through intentional strategy and high-quality media.
