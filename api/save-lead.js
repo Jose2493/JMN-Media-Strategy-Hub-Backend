@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       console.error('Resend error:', await emailResponse.text());
     }
 
-   // 2. Guardar en SuiteDash (no debe tumbar la respuesta si falla)
+    // 2. Guardar en SuiteDash (no debe tumbar la respuesta si falla)
     try {
       const suiteDashResponse = await fetch(
         'https://app.suitedash.com/secure-api/contacts',
@@ -112,3 +112,12 @@ export default async function handler(req, res) {
       message: 'Lead saved successfully',
       leadScore
     });
+
+  } catch (error) {
+    console.error('Error:', error);
+    return res.status(500).json({
+      error: 'Failed to save lead',
+      details: error.message
+    });
+  }
+}
