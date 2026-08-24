@@ -91,6 +91,12 @@ ${memoryContext}`;
     await addMessage(companyId, contactId, conversationId, 'user', message);
     await addMessage(companyId, contactId, conversationId, 'assistant', reply);
 
+    try {
+      await maybeUpdateMemory(companyId, conversationId);
+    } catch (memErr) {
+      console.error('Memory update failed (non-fatal):', memErr.message);
+    }
+
     return res.status(200).json({ reply, conversationId });
   } catch (error) {
     console.error('Error:', error);
