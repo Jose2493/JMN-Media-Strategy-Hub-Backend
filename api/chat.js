@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { getCompanyMemory, formatMemoryForPrompt, updateCompanyMemory, insertMemoryFacts } from '../lib/memory.js';
 import { createConversation, getConversation, addMessage } from '../lib/repositories.js';
 import { createClient } from '@supabase/supabase-js';
+import { maybeUpdateMemory } from '../lib/memoryExtraction.js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 const MEMORY_UPDATE_THRESHOLD = 8;
