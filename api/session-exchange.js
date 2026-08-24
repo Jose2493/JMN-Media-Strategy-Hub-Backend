@@ -20,12 +20,6 @@ export default async function handler(req, res) {
 
   const tokenHash = crypto.createHash('sha256').update(bootstrapToken).digest('hex');
 
-  // --- DEBUG TEMPORAL, borrar después de diagnosticar ---
-  console.log('DEBUG bootstrapToken recibido:', JSON.stringify(bootstrapToken));
-  console.log('DEBUG longitud recibida:', bootstrapToken.length);
-  console.log('DEBUG hash calculado:', tokenHash);
-  // --- fin debug ---
-
   const { data: contact, error } = await supabase
     .from('contacts')
     .select('id, company_id')
