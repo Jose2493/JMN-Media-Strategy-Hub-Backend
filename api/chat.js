@@ -1,11 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { getCompanyMemory, formatMemoryForPrompt, updateCompanyMemory, insertMemoryFacts } from '../lib/memory.js';
 import { createConversation, getConversation, addMessage } from '../lib/repositories.js';
-import { createClient } from '@supabase/supabase-js';
 import { maybeUpdateMemory } from '../lib/memoryExtraction.js';
+import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
-const MEMORY_UPDATE_THRESHOLD = 8;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,13 +25,13 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
 
-  const { message, conversationId: incomingConversationId } = req.body;
-  if (!message) return res.status(400).json({ error: 'Missing message' });
+  const { message, conversationId: incomingConversationId, greeting } = req.body;
+  if (!message && !greeting) return res.status(400).json({ error: 'Missing message' });
 
   try {
     let conversationId = incomingConversationId;
     if (conversationId) {
-      await getConversation(companyId, conversationId); // valida que sea de esta empresa
+      await getConversation(companyId, conversationId);
     } else {
       const conv = await createConversation(companyId, contactId);
       conversationId = conv.id;
@@ -66,6 +65,10 @@ ${memoryContext}`;
       .order('created_at', { ascending: true })
       .limit(20);
 
+    const humanTurn = greeting
+      ? 'The client just opened a new session and has not said anything yet. Write only the warm opening message itself, 2-3 sentences, no preamble, no meta-commentary. If you have memory of this company above, reference something specific and relevant to pick up where things left off, in your own natural voice. If there is no memory yet, introduce yourself briefly as Jose from JMN Media and invite them to share what they are noticing about their brand.'
+      : message;
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -77,7 +80,7 @@ ${memoryContext}`;
         model: 'claude-opus-4-6',
         max_tokens: 300,
         system: systemPrompt,
-        messages: [...(recentMessages || []).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }]
+        messages: [...(recentMessages || []).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: humanTurn }]
       })
     });
 
@@ -88,7 +91,9 @@ ${memoryContext}`;
     }
     const reply = data.content?.[0]?.text || 'Let me think about that...';
 
-    await addMessage(companyId, contactId, conversationId, 'user', message);
+    if (!greeting) {
+      await addMessage(companyId, contactId, conversationId, 'user', message);
+    }
     await addMessage(companyId, contactId, conversationId, 'assistant', reply);
 
     try {
