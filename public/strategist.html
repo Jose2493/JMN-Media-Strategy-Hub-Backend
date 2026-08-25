@@ -137,7 +137,7 @@
   function showTyping() {
     const typingEl = document.createElement('div');
     typingEl.className = 'typing';
-    typingEl.textContent = 'Escribiendo...';
+    typingEl.textContent = 'Typing...';
     messagesEl.appendChild(typingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return typingEl;
@@ -150,7 +150,7 @@
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
     if (!bootstrapToken) {
-      showStatus('No se encontró una sesión válida. Contacta a JMN Media.');
+      showStatus("We couldn't find a valid session. Please contact JMN Media.");
       return;
     }
     await refreshSession();
@@ -177,7 +177,7 @@
       sendBtn.disabled = false;
       inputEl.disabled = false;
     } catch (err) {
-      showStatus('No se pudo iniciar la sesión. Contacta a JMN Media.');
+      showStatus("We couldn't start your session. Please contact JMN Media.");
       sendBtn.disabled = true;
       inputEl.disabled = true;
     }
@@ -229,14 +229,14 @@
       typingEl.remove();
 
       if (!res.ok) {
-        addMessage('system', 'Hubo un problema procesando tu mensaje. Intenta de nuevo.');
+        addMessage('system', 'There was a problem processing your message. Please try again.');
       } else {
         conversationId = data.conversationId;
         addMessage('assistant', data.reply);
       }
     } catch (err) {
       typingEl.remove();
-      addMessage('system', 'No se pudo conectar. Revisa tu conexión e intenta de nuevo.');
+      addMessage('system', "Couldn't connect. Check your connection and try again.");
     } finally {
       sendBtn.disabled = false;
       inputEl.focus();
