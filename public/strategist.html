@@ -110,6 +110,7 @@
   let sessionToken = null;
   let conversationId = null;
   let renewalTimer = null;
+  let hasGreeted = false;
 
   const messagesEl = document.getElementById('messages');
   const inputEl = document.getElementById('input-box');
@@ -131,6 +132,15 @@
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return div;
+  }
+
+  function showTyping() {
+    const typingEl = document.createElement('div');
+    typingEl.className = 'typing';
+    typingEl.textContent = 'Escribiendo...';
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return typingEl;
   }
 
   async function initSession() {
@@ -157,14 +167,41 @@
       const data = await res.json();
       sessionToken = data.sessionToken;
       hideStatus();
-      sendBtn.disabled = false;
-      inputEl.disabled = false;
       if (renewalTimer) clearTimeout(renewalTimer);
       renewalTimer = setTimeout(refreshSession, (data.expiresInSeconds - 60) * 1000);
+
+      if (!hasGreeted) {
+        hasGreeted = true;
+        await sendGreeting();
+      }
+      sendBtn.disabled = false;
+      inputEl.disabled = false;
     } catch (err) {
       showStatus('No se pudo iniciar la sesión. Contacta a JMN Media.');
       sendBtn.disabled = true;
       inputEl.disabled = true;
+    }
+  }
+
+  async function sendGreeting() {
+    const typingEl = showTyping();
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + sessionToken
+        },
+        body: JSON.stringify({ greeting: true })
+      });
+      const data = await res.json();
+      typingEl.remove();
+      if (res.ok) {
+        conversationId = data.conversationId;
+        addMessage('assistant', data.reply);
+      }
+    } catch (err) {
+      typingEl.remove();
     }
   }
 
@@ -177,11 +214,7 @@
     inputEl.style.height = 'auto';
     sendBtn.disabled = true;
 
-    const typingEl = document.createElement('div');
-    typingEl.className = 'typing';
-    typingEl.textContent = 'Escribiendo...';
-    messagesEl.appendChild(typingEl);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    const typingEl = showTyping();
 
     try {
       const res = await fetch('/api/chat', {
