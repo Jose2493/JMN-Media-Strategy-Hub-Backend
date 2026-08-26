@@ -6,6 +6,29 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 
+async function checkRateLimit(contactId) {
+  const now = new Date();
+  const hourStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours())).toISOString();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+
+  const hourLimit = Number(process.env.RATE_LIMIT_PER_HOUR ?? 40);
+  const dayLimit = Number(process.env.RATE_LIMIT_PER_DAY ?? 150);
+
+  const { data: hourOk, error: hourError } = await supabase.rpc('check_and_increment_rate_limit', {
+    p_contact_id: contactId, p_window_type: 'hour', p_window_start: hourStart, p_limit: hourLimit
+  });
+  const { data: dayOk, error: dayError } = await supabase.rpc('check_and_increment_rate_limit', {
+    p_contact_id: contactId, p_window_type: 'day', p_window_start: dayStart, p_limit: dayLimit
+  });
+
+  if (hourError || dayError) {
+    console.error('Rate limit check failed:', hourError?.message, dayError?.message);
+    return true; // fail open — un fallo de infraestructura nuestro no debe bloquear a un cliente legítimo
+  }
+
+  return hourOk && dayOk;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -23,6 +46,15 @@ export default async function handler(req, res) {
     companyId = decoded.companyId;
   } catch {
     return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+
+  const withinLimit = await checkRateLimit(contactId);
+  if (!withinLimit) {
+    console.warn(`Rate limit exceeded for contact ${contactId}`);
+    return res.status(429).json({
+      reply: "You're sending messages a bit too fast for me to keep up — give it a moment and try again shortly.",
+      rateLimited: true
+    });
   }
 
   const { message, conversationId: incomingConversationId, greeting } = req.body;
