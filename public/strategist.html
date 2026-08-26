@@ -228,7 +228,9 @@
       const data = await res.json();
       typingEl.remove();
 
-      if (!res.ok) {
+      if (res.status === 429 && data.reply) {
+        addMessage('assistant', data.reply);
+      } else if (!res.ok) {
         addMessage('system', 'There was a problem processing your message. Please try again.');
       } else {
         conversationId = data.conversationId;
