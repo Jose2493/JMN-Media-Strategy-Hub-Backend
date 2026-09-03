@@ -1,0 +1,25 @@
+name: Manual database backup
+on:
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Dump roles
+        run: pg_dumpall --dbname="${{ secrets.SUPABASE_DB_URL }}" --roles-only -f roles.sql
+      - name: Dump schema
+        run: pg_dump "${{ secrets.SUPABASE_DB_URL }}" --schema-only -f schema.sql
+      - name: Dump data
+        run: pg_dump "${{ secrets.SUPABASE_DB_URL }}" --data-only -f data.sql
+      - name: Upload backup files
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmn-backup-${{ github.run_id }}
+          path: |
+            roles.sql
+            schema.sql
+            data.sql
+          retention-days: 14
