@@ -154,8 +154,8 @@
         slot: {
           x: 300,       // placeholder — pecho lado izquierdo, por ajustar contra el mockup real
           y: 330,
-          width: 160,
-          height: 100
+          width: 110,   // reducido de 160 — se acerca más al tamaño del parche en la referencia Semper
+          height: 70    // reducido de 100, misma proporción aprox.; sigue siendo placeholder por calibrar
         }
       }
     }
@@ -215,8 +215,6 @@
     if (codes.includes(defaultCode)) {
       countrySelect.value = defaultCode;
     }
-    // NOTA: todavía sin listener de 'change' — eso es parte de la lógica de
-    // edición en vivo, que es el siguiente paso, no este.
   }
 
   const statusEl = document.getElementById('status');
@@ -228,27 +226,17 @@
   let shirtMockup, designGroup, athleteNameObj, countryFlagObj;
 
   function buildDesignGroup() {
-    // PLACEHOLDER: aún no hay assets reales de branding Semper (logo, "SEMPER CROSSFIT", "USA").
-    // Este grupo existe para reservar la capa conceptual "designGroup" en el modelo de objetos.
-    // Cuando lleguen los assets reales, se reemplaza el contenido de esta función
-    // sin tocar el resto del editor (shirtMockup / athleteName / countryFlag no cambian).
-    const marker = new fabric.Rect({
-      left: 0, top: 0, width: TEMPLATE.canvas.width, height: TEMPLATE.canvas.height,
-      fill: 'transparent',
-      stroke: 'rgba(109,91,208,0.35)',
-      strokeDashArray: [10, 8],
-      strokeWidth: 2,
-      selectable: false,
-      evented: false
+    // Capa reservada para el branding real de Semper (logo, "SEMPER CROSSFIT", "USA").
+    // Aún no hay esos assets, así que el grupo se crea VACÍO a propósito —
+    // nada de rectángulos guía, texto de debug ni marcadores visibles. Debe
+    // renderizar y exportar como si no existiera hasta que tenga contenido real.
+    // La capa sigue existiendo en el modelo de objetos (mismo orden de z-index,
+    // mismo punto de inserción en canvas.add) para que agregar el logo real más
+    // adelante sea reemplazar el contenido de esta función, sin tocar nada más.
+    return new fabric.Group([], {
+      left: 0, top: 0,
+      selectable: false, evented: false
     });
-    const label = new fabric.Text('designGroup (placeholder — branding Semper pendiente)', {
-      left: 20, top: 20,
-      fontSize: 22,
-      fill: 'rgba(109,91,208,0.6)',
-      selectable: false,
-      evented: false
-    });
-    return new fabric.Group([marker, label], { selectable: false, evented: false });
   }
 
   function lockObject(obj) {
