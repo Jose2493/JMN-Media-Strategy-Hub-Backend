@@ -260,7 +260,7 @@
   const downloadBtn = document.getElementById('download-btn');
 
   let canvas;
-  let shirtMockup, designGroup, athleteNameObj, countryFlagObj;
+  let shirtMockup, designGroupObjects, athleteNameObj, countryFlagObj;
 
   function loadImageAsPromise(src) {
     return new Promise((resolve) => {
@@ -281,31 +281,45 @@
     return obj;
   }
 
-  async function buildDesignGroup() {
-    // Branding fijo de Semper — bloqueado, el cliente no puede tocarlo.
-    // Ambas piezas son artwork oficial de JMN (semper-mark.png y
-    // semper-crossfit-usa.png), no texto/formas reconstruidas -- solo se
-    // posicionan y escalan (fit+center) según lo medido contra la foto de
-    // referencia (DESIGN_GROUP_SPEC). Nada dibujado ni aproximado a mano.
+  // BUG ENCONTRADO Y CORREGIDO (build anterior):
+  // Este código envolvía markImg/scImg en un fabric.Group con `left: 0, top: 0`
+  // explícito en las opciones. fitObjectInSlot ya les había asignado left/top
+  // ABSOLUTOS de canvas (p.ej. mark en left:835.5,top:335.5). El constructor de
+  // fabric.Group calcula la posición/tamaño del grupo a partir del bounding box
+  // real de sus hijos y convierte las coordenadas de estos a relativas-al-centro-
+  // del-grupo usando ESE bounding box calculado -- pero como se pasó `left:0,
+  // top:0` explícito, el grupo terminaba dibujándose en el origen del canvas en
+  // vez de en su bounding box real, mientras los hijos ya habían sido
+  // convertidos a offsets relativos a un centro distinto. Resultado: mark y
+  // scImg se renderizaban desplazados cientos de píxeles de su slot real
+  // (el mark cerca de (467,33) en vez de (835,335); el artwork SEMPER
+  // CROSSFIT+USA cerca de (266,242) en vez de (634,544)) -- exactamente el
+  // "todo desplazado hacia arriba/izquierda y cortado" que se reportó.
+  //
+  // FIX: se elimina el fabric.Group. Cada elemento fijo se agrega directo al
+  // canvas con SUS PROPIAS coordenadas absolutas (mismo sistema que ya usan
+  // countryFlag y athleteName) y se bloquea individualmente. "designGroup"
+  // sigue existiendo como concepto lógico (un array de objetos bloqueados que
+  // el cliente no puede tocar), pero ya no depende de la conversión
+  // absoluto->relativo de fabric.Group, así que no hay dos sistemas de
+  // coordenadas mezclados -- todo el canvas usa coordenadas absolutas.
+  async function buildDesignGroupObjects() {
     const spec = DESIGN_GROUP_SPEC;
-    const children = [];
+    const objects = [];
 
     // --- Semper mark (ícono S real, no aproximado) ---
     const markImg = await loadImageAsPromise(spec.semperMark.src);
     fitObjectInSlot(markImg, spec.semperMark.slot, markImg.width, markImg.height);
-    children.push(markImg);
+    objects.push(markImg);
 
     // --- Línea + "SEMPER CROSSFIT" + caja "USA" ---
     // Artwork oficial de JMN (semper-crossfit-usa.png), usado tal cual —
     // ya no se reconstruye con Rects/Text aproximados.
     const scImg = await loadImageAsPromise(spec.semperCrossfitArtwork.src);
     fitObjectInSlot(scImg, spec.semperCrossfitArtwork.slot, scImg.width, scImg.height);
-    children.push(scImg);
+    objects.push(scImg);
 
-    return new fabric.Group(children, {
-      left: 0, top: 0,
-      selectable: false, evented: false
-    });
+    return objects;
   }
 
   function lockObject(obj) {
@@ -406,8 +420,11 @@
     canvas.add(shirtMockup);
     shirtMockup.moveTo(0); // capa base, siempre al fondo
 
-    designGroup = lockObject(await buildDesignGroup());
-    canvas.add(designGroup);
+    designGroupObjects = await buildDesignGroupObjects();
+    designGroupObjects.forEach(obj => {
+      lockObject(obj);
+      canvas.add(obj);
+    });
 
     calibrateAthleteNameReferenceSize();
     athleteNameObj = lockObject(buildAthleteNameText(nameInput.value));
@@ -422,6 +439,38 @@
     canvas.renderAll();
     statusEl.textContent = 'Listo.';
     enableControls();
+
+    // -----------------------------------------------------------------
+    // CHECKPOINT DE DEBUG TEMPORAL — pedido explícitamente para auditar el
+    // bug de coordenadas de designGroup. Solo hace console.table/console.log;
+    // no toca canvas.toDataURL() ni el export, así que no puede filtrarse al
+    // PNG. Borrar este bloque una vez confirmada la corrección en Vercel.
+    // -----------------------------------------------------------------
+    (function debugReportBoundingBoxes() {
+      const report = (label, obj) => {
+        if (!obj) return { element: label, present: false };
+        const r = obj.getBoundingRect(true); // left/top/width/height reales en coords de canvas, post-transform
+        return {
+          element: label,
+          present: true,
+          left: Math.round(r.left),
+          top: Math.round(r.top),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
+          scaleX: +obj.scaleX.toFixed(3),
+          scaleY: +obj.scaleY.toFixed(3)
+        };
+      };
+      const rows = [
+        report('shirtMockup', shirtMockup),
+        report('semperMark', designGroupObjects && designGroupObjects[0]),
+        report('semperCrossfitUsaArtwork', designGroupObjects && designGroupObjects[1]),
+        report('athleteName (' + JSON.stringify(nameInput.value) + ')', athleteNameObj),
+        report('countryFlag (' + TEMPLATE.fields.countryFlag.countryCode + ')', countryFlagObj)
+      ];
+      console.log('%c[JMN Design Studio] Checkpoint de bounding boxes reales:', 'font-weight:bold');
+      if (console.table) console.table(rows); else console.log(rows);
+    })();
   }
 
   function enableControls() {
