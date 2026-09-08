@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>JMN Design Studio</title>
+
+<!-- Fabric.js pinned a una versión exacta (no "latest"). Cambiar de versión es una decisión explícita, no automática. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0b0b0f;
+    color: #e8e8ec;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #topbar {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #8a8a95;
+    border-bottom: 1px solid #1e1e26;
+  }
+  #main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  #canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f2f2f2; /* fondo neutro de mockup, el shirt PNG tiene transparencia */
+    overflow: auto;
+  }
+  #design-canvas-el {
+    /* dimensiones reales seteadas por JS; esto solo evita un salto visual antes de cargar */
+    max-width: 100%;
+    max-height: 100%;
+  }
+  #panel {
+    width: 280px;
+    padding: 20px;
+    border-left: 1px solid #1e1e26;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #panel h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e8e8ec;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: #8a8a95; }
+  .field input, .field select {
+    background: #17171d;
+    border: 1px solid #232330;
+    border-radius: 8px;
+    color: #e8e8ec;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: #6d5bd0; }
+  #download-btn {
+    margin-top: 8px;
+    background: #6d5bd0;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  #download-btn.enabled {
+    cursor: pointer;
+    opacity: 1;
+  }
+  #download-btn.enabled:hover {
+    background: #5c4bc0;
+  }
+  #status { font-size: 12px; color: #8a8a95; }
+</style>
+</head>
+<body>
+
+<div id="topbar">JMN Design Studio — V0.1</div>
+
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="design-canvas-el"></canvas>
+  </div>
+
+  <div id="panel">
+    <h1>Semper Athlete Shirt 01</h1>
+
+    <div class="field">
+      <label for="athlete-name-input">Athlete Name</label>
+      <input id="athlete-name-input" type="text" value="TORRES" maxlength="24">
+    </div>
+
+    <div class="field">
+      <label for="country-select">Country / Flag</label>
+      <select id="country-select">
+        <option value="">Cargando países...</option>
+      </select>
+    </div>
+
+    <button id="download-btn" disabled>Download PNG</button>
+    <div id="status">Cargando template...</div>
+  </div>
+</div>
+
+<script>
+  // ---------------------------------------------------------------------
+  // TEMPLATE CONFIG — semper-athlete-shirt-01
+  // Referencia conceptual, no viene de Supabase todavía (eso es fase 2).
+  // Las coordenadas de athleteName / countryFlag son PLACEHOLDER, tomadas
+  // a ojo de la referencia visual que compartió Jose (TORRES + bandera).
+  // Se deben ajustar visualmente una vez que el motor esté probado.
+  // ---------------------------------------------------------------------
+  const TEMPLATE = {
+    id: 'semper-athlete-shirt-01',
+    canvas: { width: 1254, height: 1254 }, // dimensiones reales del PNG base
+    shirtMockup: {
+      src: 'assets/design-studio/shirt-mockup.png'
+    },
+    fields: {
+      athleteName: {
+        text: 'TORRES',
+        x: 627,        // placeholder — centrado horizontal aproximado
+        y: 520,        // placeholder — altura aproximada del pecho
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: '900',
+        fontSize: 90,
+        fill: '#FFFFFF',
+        originX: 'center',
+        originY: 'center'
+      },
+      countryFlag: {
+        countryCode: 'DO',  // ISO 3166-1 alpha-2.
+        // "slot" es el parche horizontal fijo donde vive la bandera — NO es el
+        // tamaño de la bandera en sí. La bandera se escala para CABER dentro
+        // de este rectángulo preservando su aspect ratio, y se centra. El
+        // slot es siempre el mismo tamaño/posición sin importar el país.
+        slot: {
+          x: 300,       // placeholder — pecho lado izquierdo, por ajustar contra el mockup real
+          y: 330,
+          width: 160,
+          height: 100
+        }
+      }
+    }
+  };
+
+  // ---------------------------------------------------------------------
+  // SISTEMA DE BANDERAS — basado en códigos ISO 3166-1 alpha-2.
+  // Los SVG NO se generan aquí ni se traen de una URL remota: deben existir
+  // localmente en public/assets/design-studio/flags/<CODE>.svg, extraídos
+  // del paquete npm "country-flag-icons" (MIT) — ver instrucciones del repo.
+  // manifest.json es la fuente de verdad de qué códigos hay disponibles;
+  // se genera a partir de los archivos reales, nunca se hardcodea a mano.
+  // ---------------------------------------------------------------------
+  const FLAGS_BASE_PATH = 'assets/design-studio/flags/';
+  const FLAGS_MANIFEST_PATH = FLAGS_BASE_PATH + 'manifest.json';
+
+  function flagPath(code) {
+    return FLAGS_BASE_PATH + code + '.svg';
+  }
+
+  // Nombre legible del país a partir del código ISO, sin lista propia que mantener.
+  const countryNameFormatter = (typeof Intl !== 'undefined' && Intl.DisplayNames)
+    ? new Intl.DisplayNames(['en'], { type: 'region' })
+    : null;
+
+  function countryDisplayName(code) {
+    if (!countryNameFormatter) return code;
+    try {
+      return countryNameFormatter.of(code) || code;
+    } catch (e) {
+      return code; // código no reconocido por Intl (p.ej. alguno de los "extra" del set, como XK/AC/TA/IC/EU)
+    }
+  }
+
+  async function loadCountryManifest() {
+    const res = await fetch(FLAGS_MANIFEST_PATH);
+    if (!res.ok) throw new Error('manifest.json no encontrado (status ' + res.status + ')');
+    const codes = await res.json();
+    if (!Array.isArray(codes) || !codes.length) throw new Error('manifest.json vacío o con formato inesperado');
+    return codes;
+  }
+
+  function populateCountrySelect(codes) {
+    const options = codes
+      .map(code => ({ code, name: countryDisplayName(code) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    countrySelect.innerHTML = '';
+    for (const { code, name } of options) {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = name + ' (' + code + ')';
+      countrySelect.appendChild(opt);
+    }
+
+    const defaultCode = TEMPLATE.fields.countryFlag.countryCode;
+    if (codes.includes(defaultCode)) {
+      countrySelect.value = defaultCode;
+    }
+    // NOTA: todavía sin listener de 'change' — eso es parte de la lógica de
+    // edición en vivo, que es el siguiente paso, no este.
+  }
+
+  const statusEl = document.getElementById('status');
+  const nameInput = document.getElementById('athlete-name-input');
+  const countrySelect = document.getElementById('country-select');
+  const downloadBtn = document.getElementById('download-btn');
+
+  let canvas;
+  let shirtMockup, designGroup, athleteNameObj, countryFlagObj;
+
+  function buildDesignGroup() {
+    // PLACEHOLDER: aún no hay assets reales de branding Semper (logo, "SEMPER CROSSFIT", "USA").
+    // Este grupo existe para reservar la capa conceptual "designGroup" en el modelo de objetos.
+    // Cuando lleguen los assets reales, se reemplaza el contenido de esta función
+    // sin tocar el resto del editor (shirtMockup / athleteName / countryFlag no cambian).
+    const marker = new fabric.Rect({
+      left: 0, top: 0, width: TEMPLATE.canvas.width, height: TEMPLATE.canvas.height,
+      fill: 'transparent',
+      stroke: 'rgba(109,91,208,0.35)',
+      strokeDashArray: [10, 8],
+      strokeWidth: 2,
+      selectable: false,
+      evented: false
+    });
+    const label = new fabric.Text('designGroup (placeholder — branding Semper pendiente)', {
+      left: 20, top: 20,
+      fontSize: 22,
+      fill: 'rgba(109,91,208,0.6)',
+      selectable: false,
+      evented: false
+    });
+    return new fabric.Group([marker, label], { selectable: false, evented: false });
+  }
+
+  function lockObject(obj) {
+    obj.set({
+      selectable: false,
+      evented: false,
+      hasControls: false,
+      hasBorders: false,
+      hoverCursor: 'default'
+    });
+    return obj;
+  }
+
+  async function init() {
+    canvas = new fabric.Canvas('design-canvas-el', {
+      width: TEMPLATE.canvas.width,
+      height: TEMPLATE.canvas.height,
+      selection: false,       // nadie puede hacer selección de área en este canvas
+      hoverCursor: 'default'
+    });
+
+    // El listado de países se carga aparte de la composición del canvas,
+    // para que un manifest.json faltante no tumbe el resto del preview.
+    let countryCodes = [];
+    try {
+      countryCodes = await loadCountryManifest();
+      populateCountrySelect(countryCodes);
+    } catch (err) {
+      console.error('No se pudo cargar el listado de países:', err.message);
+      countrySelect.innerHTML = '<option value="">No disponible</option>';
+      statusEl.textContent = 'Faltan los assets de banderas (public/assets/design-studio/flags/). Ver instrucciones del repo.';
+    }
+
+    fabric.Image.fromURL(TEMPLATE.shirtMockup.src, (img) => {
+      shirtMockup = lockObject(img);
+      shirtMockup.set({ left: 0, top: 0, originX: 'left', originY: 'top' });
+      canvas.add(shirtMockup);
+      shirtMockup.moveTo(0); // capa base, siempre al fondo
+
+      designGroup = lockObject(buildDesignGroup());
+      canvas.add(designGroup);
+
+      const f = TEMPLATE.fields.athleteName;
+      athleteNameObj = lockObject(new fabric.Text(f.text, {
+        left: f.x, top: f.y,
+        fontFamily: f.fontFamily,
+        fontWeight: f.fontWeight,
+        fontSize: f.fontSize,
+        fill: f.fill,
+        originX: f.originX,
+        originY: f.originY
+      }));
+      canvas.add(athleteNameObj);
+
+      if (!countryCodes.includes(TEMPLATE.fields.countryFlag.countryCode)) {
+        // No hay manifest/assets todavía — se deja el canvas sin bandera en vez de romper.
+        canvas.renderAll();
+        return;
+      }
+
+      loadFlag(TEMPLATE.fields.countryFlag.countryCode, () => {
+        canvas.renderAll();
+        statusEl.textContent = 'Listo.';
+        enableControls();
+      });
+    }, { crossOrigin: 'anonymous' });
+  }
+
+  function enableControls() {
+    downloadBtn.disabled = false;
+    downloadBtn.classList.add('enabled');
+  }
+
+  // --- Athlete Name: edición en vivo ---
+  nameInput.addEventListener('input', () => {
+    if (!athleteNameObj) return; // canvas aún no terminó de montarse
+    athleteNameObj.set({ text: nameInput.value });
+    canvas.renderAll();
+  });
+
+  // --- Country / Flag: swap en vivo ---
+  countrySelect.addEventListener('change', () => {
+    const code = countrySelect.value;
+    if (!code || !canvas) return;
+    loadFlag(code);
+  });
+
+  // --- Download PNG ---
+  downloadBtn.addEventListener('click', () => {
+    if (!canvas) return;
+    const dataURL = canvas.toDataURL({ format: 'png' });
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = TEMPLATE.id + '.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  function loadFlag(countryCode, onDone) {
+    const slot = TEMPLATE.fields.countryFlag.slot;
+
+    // Se carga como SVG vectorial (fabric.loadSVGFromURL), no como imagen
+    // rasterizada (fabric.Image.fromURL). Motivo: los SVG de flag-icons no
+    // garantizan tener atributos width/height explícitos, solo viewBox — si
+    // se cargan como <img>, el navegador puede rasterizarlos a un tamaño por
+    // defecto incorrecto (borroso al escalar). Cargándolos como vectores,
+    // Fabric lee las dimensiones reales del propio SVG y escala sin pérdida,
+    // sin importar el tamaño final del parche.
+    fabric.loadSVGFromURL(flagPath(countryCode), (objects, options) => {
+      const flagArt = fabric.util.groupSVGElements(objects, options);
+
+      // Escala uniforme (misma proporción en X e Y) para que quepa dentro
+      // del slot sin distorsionar el escudo/emblema — nunca "min" != "min"
+      // por separado en cada eje, siempre el mismo factor en ambos.
+      const scale = Math.min(slot.width / flagArt.width, slot.height / flagArt.height);
+
+      flagArt.set({
+        left: slot.x + slot.width / 2,
+        top: slot.y + slot.height / 2,
+        originX: 'center',
+        originY: 'center',
+        scaleX: scale,
+        scaleY: scale
+      });
+
+      if (countryFlagObj) canvas.remove(countryFlagObj);
+      countryFlagObj = lockObject(flagArt);
+      canvas.add(countryFlagObj);
+      canvas.renderAll();
+      if (onDone) onDone();
+    });
+  }
+
+  init();
+</script>
+
+</body>
+</html>
