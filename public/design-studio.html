@@ -468,6 +468,30 @@
   // del wrapper .canvas-container y de los dos <canvas> que Fabric genera
   // internamente (el "lower" de render y el "upper" de interacción),
   // dejando canvas.width/canvas.height intactos.
+  //
+  // BUG REAL encontrado en producción (Vercel) y confirmado inspeccionando el
+  // código fuente real de fabric.js 5.3.0 tal como corre en el navegador:
+  // StaticCanvas.prototype.setDimensions SOLO agrega la unidad "px" a cada
+  // valor cuando options.cssOnly es FALSO; con cssOnly:true asume que el
+  // caller ya mandó un string CSS válido y lo asigna tal cual a
+  // lowerCanvasEl.style / upperCanvasEl.style / wrapperEl.style. Pasar un
+  // NÚMERO (p.ej. 529) con cssOnly:true hace que el navegador reciba
+  // style.width = 529 (sin unidad) -- un valor CSS inválido que el motor de
+  // estilos ignora en silencio, dejando el canvas y su .canvas-container
+  // trabados en su tamaño original de 1254px. Esto, combinado con el cambio
+  // de #canvas-wrap a overflow:hidden, era la causa exacta del preview en
+  // blanco: el canvas seguía a tamaño nativo (1254x1254) pero recortado por
+  // overflow:hidden, y como fabric.Canvas.prototype._setCssDimension también
+  // reescribe wrapperEl.style (el propio .canvas-container), ese wrapper
+  // quedaba con un ancho "usado" distinto al de sus hijos posicionados en
+  // absoluto, produciendo el recorte visible en el reporte. Verificado
+  // reproduciendo ambos casos (número crudo vs. string con "px") sobre un
+  // fabric.Canvas de prueba cargado con la MISMA build de fabric.js 5.3.0
+  // del CDN: con número crudo el estilo no cambia; con "529px" cambia
+  // correctamente, y canvas.width/height (backstore) se mantienen intactos
+  // en ambos casos.
+  //
+  // FIX: pasar los valores como strings CSS ("<px>px"), no como números.
   const CANVAS_PREVIEW_PADDING = 24; // px de aire visual dentro de #canvas-wrap
   function fitCanvasToPreview() {
     if (!canvas) return;
@@ -484,8 +508,8 @@
     const displayScale = Math.min(scale, 1);
     canvas.setDimensions(
       {
-        width: TEMPLATE.canvas.width * displayScale,
-        height: TEMPLATE.canvas.height * displayScale
+        width: (TEMPLATE.canvas.width * displayScale) + 'px',
+        height: (TEMPLATE.canvas.height * displayScale) + 'px'
       },
       { cssOnly: true }
     );
