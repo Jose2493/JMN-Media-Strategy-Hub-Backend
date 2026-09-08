@@ -9,14 +9,18 @@
 <!-- Fabric.js pinned a una versión exacta (no "latest"). Cambiar de versión es una decisión explícita, no automática. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
 
-<!-- Barlow Condensed (peso 900/Black, itálica): decisión confirmada como la
-     fuente del apellido dinámico del atleta -- se acerca más a TORRES en la
-     referencia que Anton (usado antes como aproximación temporal). Si JMN
-     tiene el archivo de fuente real de marca, se reemplaza aquí sin tocar el
-     resto del motor. -->
+<!-- Quantico Bold Italic: fuente APROBADA del apellido dinámico del atleta
+     (decisión final, tras comparar Saira/Roboto/Barlow/Barlow Semi Condensed
+     y luego Quantico/Kanit contra la foto master -- ver font-comparison.html).
+     Ningún candidato condensado alcanzaba el ancho real de TORRES (547px)
+     respetando el techo de alto medido (93px) sin distorsión -- Quantico se
+     eligió junto con un scaleX horizontal fijo (ver TEMPLATE.fields.athleteName.baseScaleX)
+     aplicado por igual a todos los nombres, no una fuente "más ancha" por sí sola.
+     Si JMN tiene el archivo de fuente real de marca, se reemplaza aquí sin
+     tocar el resto del motor. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quantico:ital,wght@1,700&display=swap" rel="stylesheet">
 
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -156,9 +160,26 @@
         centerX: 641,
         centerY: 455,
         maxWidth: 547,    // igual al ancho que ocupa TORRES en la referencia — techo duro
-        fontFamily: '"Barlow Condensed", "Arial Narrow", sans-serif',
-        fontWeight: 900,  // variante Black
-        fontStyle: 'italic', // la itálica real de la fuente reemplaza el skewX manual que usaba Anton
+        // maxHeight: medido igual que maxWidth (componentes conectados sobre la foto
+        // master, mapeado al bbox real de shirt-mockup.png) -- altura real de la tinta
+        // de TORRES, de 409 a 502 en esa escala = 93px.
+        maxHeight: 93,
+        fontFamily: '"Quantico", "Arial Narrow", sans-serif',
+        fontWeight: 700,  // Quantico no tiene variante 900/Black -- 700 (Bold) es la más pesada que ofrece
+        fontStyle: 'italic',
+        // baseScaleX: estiramiento horizontal FIJO, calibrado UNA sola vez contra la
+        // palabra TORRES (misma referencia que maxWidth/maxHeight), y aplicado POR IGUAL
+        // a cualquier nombre -- nunca se recalcula por-nombre. Decisión explícita del
+        // 2026-09-08: ningún candidato condensado (Saira, Roboto Condensed, Barlow
+        // Condensed, Barlow Semi Condensed) alcanzaba el ancho real de TORRES (547px)
+        // respetando maxHeight sin deformarse; Quantico + este scaleX fijo fue el
+        // tratamiento aprobado tras comparación visual (~1.541, recalibrado en runtime
+        // por calibrateAthleteNameReferenceSize -- ver esa función). Aplicar un scaleX
+        // DISTINTO por nombre para forzar a cada uno al ancho de TORRES fue EXPLÍCITAMENTE
+        // rechazado -- deformaría cada nombre de forma distinta y perdería consistencia
+        // visual entre atletas. Este es el ÚNICO lugar del template donde se permite
+        // escalar un eje por separado (scaleX != scaleY) -- nunca en flags, marks, o
+        // artwork fijo.
         fill: '#EBEBEB',  // tono real medido en la impresión de la referencia (no blanco puro)
         originX: 'center',
         originY: 'center'
@@ -196,6 +217,20 @@
       src: 'assets/design-studio/semper-crossfit-usa.png',
       slot: { x: 368, y: 514, width: 532, height: 60 }
     }
+  };
+
+  // ---------------------------------------------------------------------
+  // GARMENT BRANDING — etiqueta de cuello (S mark + "SEMPER" + talla "L").
+  // Es branding de la PRENDA física, no del diseño del cliente -- por eso es
+  // su propia capa, separada de designGroup, aunque se bloquea igual.
+  // Asset oficial de JMN (neck-label.png), usado tal cual, no reconstruido.
+  // Slot medido igual que el resto: componentes conectados sobre la foto
+  // master (zona del cuello, x%:0.472-0.524, y%:0.055-0.103 del bbox de la
+  // camiseta) mapeados al bbox real de shirt-mockup.png.
+  // ---------------------------------------------------------------------
+  const NECK_LABEL_SPEC = {
+    src: 'assets/design-studio/neck-label.png',
+    slot: { x: 596, y: 115, width: 58, height: 58 }
   };
 
   // ---------------------------------------------------------------------
@@ -260,7 +295,7 @@
   const downloadBtn = document.getElementById('download-btn');
 
   let canvas;
-  let shirtMockup, designGroupObjects, athleteNameObj, countryFlagObj;
+  let shirtMockup, neckLabelObj, semperMarkObj, semperCrossfitUsaObj, athleteNameObj, countryFlagObj;
 
   function loadImageAsPromise(src) {
     return new Promise((resolve) => {
@@ -296,30 +331,18 @@
   // CROSSFIT+USA cerca de (266,242) en vez de (634,544)) -- exactamente el
   // "todo desplazado hacia arriba/izquierda y cortado" que se reportó.
   //
-  // FIX: se elimina el fabric.Group. Cada elemento fijo se agrega directo al
+  // FIX: se elimina el fabric.Group. Cada elemento fijo (mark, artwork
+  // SEMPER CROSSFIT+USA, y ahora la etiqueta de cuello) se agrega directo al
   // canvas con SUS PROPIAS coordenadas absolutas (mismo sistema que ya usan
-  // countryFlag y athleteName) y se bloquea individualmente. "designGroup"
-  // sigue existiendo como concepto lógico (un array de objetos bloqueados que
-  // el cliente no puede tocar), pero ya no depende de la conversión
-  // absoluto->relativo de fabric.Group, así que no hay dos sistemas de
-  // coordenadas mezclados -- todo el canvas usa coordenadas absolutas.
-  async function buildDesignGroupObjects() {
-    const spec = DESIGN_GROUP_SPEC;
-    const objects = [];
-
-    // --- Semper mark (ícono S real, no aproximado) ---
-    const markImg = await loadImageAsPromise(spec.semperMark.src);
-    fitObjectInSlot(markImg, spec.semperMark.slot, markImg.width, markImg.height);
-    objects.push(markImg);
-
-    // --- Línea + "SEMPER CROSSFIT" + caja "USA" ---
-    // Artwork oficial de JMN (semper-crossfit-usa.png), usado tal cual —
-    // ya no se reconstruye con Rects/Text aproximados.
-    const scImg = await loadImageAsPromise(spec.semperCrossfitArtwork.src);
-    fitObjectInSlot(scImg, spec.semperCrossfitArtwork.slot, scImg.width, scImg.height);
-    objects.push(scImg);
-
-    return objects;
+  // countryFlag y athleteName) y se bloquea individualmente -- así no hay dos
+  // sistemas de coordenadas mezclados, todo el canvas usa coordenadas
+  // absolutas. "designGroup"/"garmentBranding" siguen existiendo como
+  // conceptos lógicos (qué está bloqueado y por qué), no como agrupación de
+  // Fabric.
+  async function loadFixedArtwork(spec) {
+    const img = await loadImageAsPromise(spec.src);
+    fitObjectInSlot(img, spec.slot, img.width, img.height);
+    return img;
   }
 
   function lockObject(obj) {
@@ -334,39 +357,91 @@
   }
 
   // ---------------------------------------------------------------------
-  // Auto-ajuste del ancho del nombre del atleta.
-  // Se calibra UNA vez un "tamaño de referencia" tal que la palabra TORRES
-  // (el nombre de la foto master) ocupa exactamente maxWidth -- así cualquier
-  // nombre igual de largo o más corto se ve tan dominante como en la
-  // referencia, y solo los nombres MÁS largos se achican proporcionalmente
-  // (nunca se agranda más allá de la referencia, nunca se distorsiona con
-  // scaleX distinto de scaleY -- se reduce el fontSize entero, uniforme).
+  // Auto-ajuste del nombre del atleta -- Quantico Bold Italic + scaleX fijo.
+  //
+  // Decisión aprobada (2026-09-08): ningún candidato condensado alcanzaba el
+  // ancho real de TORRES (547px) respetando el techo de alto medido (93px)
+  // sin deformarse -- Quantico se aprobó junto con un estiramiento horizontal
+  // (scaleX) calibrado UNA vez contra TORRES y aplicado POR IGUAL a todos los
+  // nombres. Esto es DISTINTO del enfoque anterior (dos fontSize de
+  // referencia, ancho y alto, tomando el más chico): ahora hay UN solo
+  // fontSize de referencia (calibrado por ALTURA) y UN scaleX fijo (calibrado
+  // por ANCHO a partir de ese mismo fontSize) -- ninguno de los dos se
+  // recalcula por nombre.
+  //
+  // Reglas explícitas de la aprobación:
+  // - Mismo estilo Quantico Bold Italic y el MISMO scaleX base para cualquier
+  //   nombre -- nunca un scaleX distinto por nombre para forzarlo al ancho de
+  //   TORRES (eso deformaría cada nombre de forma distinta).
+  // - Nombres más cortos/estrechos que TORRES: NUNCA se agrandan ni se
+  //   estiran más para "rellenar" el ancho -- se quedan al fontSize de
+  //   referencia, con el mismo scaleX fijo, y por lo tanto más angostos que
+  //   TORRES. Eso es intencional.
+  // - Nombres que exceden el ancho máximo (incluso después del scaleX fijo)
+  //   O el alto máximo (por ejemplo, letras con tilde/diéresis como Ñ, Á, Ü
+  //   -- comunes en apellidos dominicanos/latinoamericanos, y más altas que
+  //   las mayúsculas simples) -- se resuelven achicando el fontSize completo
+  //   de forma proporcional (nunca con un scaleX/scaleY independiente) hasta
+  //   caber en AMBOS techos.
   // ---------------------------------------------------------------------
-  let athleteNameReferenceFontSize = null;
+  let athleteNameReferenceFontSize = null; // calibrado SOLO por altura (maxHeight)
+  let athleteNameBaseScaleX = null;        // estiramiento horizontal FIJO, igual para todos los nombres
 
   function measureAthleteTextWidth(text, fontSize) {
     const f = TEMPLATE.fields.athleteName;
     // Debe usar EXACTAMENTE los mismos fontWeight/fontStyle que el texto real --
-    // Black itálica tiene un ancho de trazo/inclinación distinto al peso normal,
+    // itálica bold tiene un ancho de trazo/inclinación distinto al peso normal,
     // así que medir con otra variante daría una calibración de ancho incorrecta.
     const probe = new fabric.Text(text, { fontFamily: f.fontFamily, fontSize, fontWeight: f.fontWeight, fontStyle: f.fontStyle });
     probe.setCoords();
-    return probe.getBoundingRect(true).width;
+    return probe.getBoundingRect(true).width; // ancho NATURAL, sin scaleX -- el scaleX se aplica aparte
+  }
+
+  function measureAthleteTextHeight(text, fontSize) {
+    const f = TEMPLATE.fields.athleteName;
+    const probe = new fabric.Text(text, { fontFamily: f.fontFamily, fontSize, fontWeight: f.fontWeight, fontStyle: f.fontStyle });
+    probe.setCoords();
+    return probe.getBoundingRect(true).height; // el scaleX es horizontal solamente -- nunca afecta esta medición
   }
 
   function calibrateAthleteNameReferenceSize() {
     const TRIAL_SIZE = 300;
-    const trialWidth = measureAthleteTextWidth('TORRES', TRIAL_SIZE);
-    athleteNameReferenceFontSize = TRIAL_SIZE * (TEMPLATE.fields.athleteName.maxWidth / trialWidth);
+    const f = TEMPLATE.fields.athleteName;
+
+    // 1) fontSize de referencia: el alto NATURAL (sin escalar) de TORRES debe
+    //    llegar exactamente a maxHeight -- este es el único techo que fija el fontSize.
+    const trialHeight = measureAthleteTextHeight('TORRES', TRIAL_SIZE);
+    athleteNameReferenceFontSize = TRIAL_SIZE * (f.maxHeight / trialHeight);
+
+    // 2) scaleX base: a ESE fontSize, cuánto hay que estirar horizontalmente
+    //    el ancho natural de TORRES para llegar exactamente a maxWidth. Se
+    //    calibra UNA sola vez aquí y después se usa fijo para cualquier nombre.
+    const naturalWidthAtReference = measureAthleteTextWidth('TORRES', athleteNameReferenceFontSize);
+    athleteNameBaseScaleX = f.maxWidth / naturalWidthAtReference;
   }
 
   function fitAthleteNameFontSize(text) {
-    const maxWidth = TEMPLATE.fields.athleteName.maxWidth;
-    const widthAtReference = measureAthleteTextWidth(text, athleteNameReferenceFontSize);
-    if (widthAtReference > maxWidth) {
-      return athleteNameReferenceFontSize * (maxWidth / widthAtReference); // nombre más largo que TORRES -> se achica
-    }
-    return athleteNameReferenceFontSize; // igual o más corto que TORRES -> mismo tamaño de referencia, no se agranda
+    const f = TEMPLATE.fields.athleteName;
+
+    // Ancho ya CON el scaleX fijo aplicado (así es como se ve realmente en pantalla).
+    const naturalWidthAtReference = measureAthleteTextWidth(text, athleteNameReferenceFontSize);
+    const scaledWidthAtReference = naturalWidthAtReference * athleteNameBaseScaleX;
+    const sizeFromWidth = scaledWidthAtReference > f.maxWidth
+      ? athleteNameReferenceFontSize * (f.maxWidth / scaledWidthAtReference) // excede el ancho incluso con el scaleX fijo -> se achica el fontSize completo
+      : athleteNameReferenceFontSize;
+
+    // El scaleX es horizontal solamente, así que el alto se mide SIN él. Cubre
+    // el caso de acentos/diéresis (Ñ, Á, Ü...) que pueden ser más altos que
+    // las mayúsculas simples con las que se calibró la referencia.
+    const heightAtReference = measureAthleteTextHeight(text, athleteNameReferenceFontSize);
+    const sizeFromHeight = heightAtReference > f.maxHeight
+      ? athleteNameReferenceFontSize * (f.maxHeight / heightAtReference)
+      : athleteNameReferenceFontSize;
+
+    // El más chico de los dos gana -- nunca se excede ni el ancho (ya
+    // considerando el scaleX fijo) ni el alto, y nunca se agranda más allá
+    // de la referencia calibrada contra TORRES.
+    return Math.min(sizeFromWidth, sizeFromHeight);
   }
 
   function buildAthleteNameText(text) {
@@ -377,6 +452,8 @@
       fontWeight: f.fontWeight,
       fontStyle: f.fontStyle,
       fontSize: fitAthleteNameFontSize(text),
+      scaleX: athleteNameBaseScaleX, // FIJO -- igual para todos los nombres, nunca recalculado por texto
+      scaleY: 1,                     // nunca se toca -- el estiramiento es SOLO horizontal
       fill: f.fill,
       originX: f.originX,
       originY: f.originY
@@ -391,16 +468,17 @@
       hoverCursor: 'default'
     });
 
-    // Hay que confirmar que Barlow Condensed (900, itálica) ya cargó ANTES de
-    // medir o dibujar texto -- si no, el fit-to-width se calcularía con las
+    // Hay que confirmar que Quantico (700, itálica) ya cargó ANTES de medir o
+    // dibujar texto -- si no, el fit-to-width/alto se calcularía con las
     // métricas de la fuente de fallback del navegador y quedaría mal
-    // calibrado desde el arranque. El descriptor debe coincidir exactamente
-    // con fontWeight/fontStyle usados en TEMPLATE.fields.athleteName.
+    // calibrado desde el arranque (y el scaleX base saldría mal también). El
+    // descriptor debe coincidir exactamente con fontWeight/fontStyle usados
+    // en TEMPLATE.fields.athleteName.
     try {
-      await document.fonts.load('italic 900 100px "Barlow Condensed"');
+      await document.fonts.load('italic 700 100px "Quantico"');
       await document.fonts.ready;
     } catch (err) {
-      console.warn('No se pudo confirmar la carga de la fuente Barlow Condensed:', err.message);
+      console.warn('No se pudo confirmar la carga de la fuente Quantico:', err.message);
     }
 
     // El listado de países se carga aparte de la composición del canvas,
@@ -415,26 +493,41 @@
       statusEl.textContent = 'Faltan los assets de banderas (public/assets/design-studio/flags/). Ver instrucciones del repo.';
     }
 
+    // Orden de capas pedido explícitamente:
+    // shirtMockup -> garmentBranding/neckLabel -> countryFlag -> semperMark
+    // -> athleteName -> semperCrossfitUsaArtwork. Todas las capas fijas usan
+    // coordenadas absolutas de canvas (fitObjectInSlot) y se bloquean
+    // individualmente -- ningún fabric.Group en el medio.
     shirtMockup = lockObject(await loadImageAsPromise(TEMPLATE.shirtMockup.src));
     shirtMockup.set({ left: 0, top: 0, originX: 'left', originY: 'top' });
     canvas.add(shirtMockup);
     shirtMockup.moveTo(0); // capa base, siempre al fondo
 
-    designGroupObjects = await buildDesignGroupObjects();
-    designGroupObjects.forEach(obj => {
-      lockObject(obj);
-      canvas.add(obj);
-    });
+    // --- Garment branding: etiqueta de cuello (S mark + SEMPER + talla L) ---
+    // Branding de la PRENDA, no del diseño del cliente -- capa propia, fija,
+    // bloqueada, asset oficial de JMN usado tal cual.
+    neckLabelObj = lockObject(await loadFixedArtwork(NECK_LABEL_SPEC));
+    canvas.add(neckLabelObj);
 
-    calibrateAthleteNameReferenceSize();
-    athleteNameObj = lockObject(buildAthleteNameText(nameInput.value));
-    canvas.add(athleteNameObj);
-
+    // --- Country flag ---
     if (countryCodes.includes(TEMPLATE.fields.countryFlag.countryCode)) {
       await new Promise((resolve) => loadFlag(TEMPLATE.fields.countryFlag.countryCode, resolve));
     }
     // Si no hay manifest/assets de banderas todavía, se deja el canvas sin
     // bandera en vez de romper el resto del preview.
+
+    // --- Semper mark (ícono S real, no aproximado) ---
+    semperMarkObj = lockObject(await loadFixedArtwork(DESIGN_GROUP_SPEC.semperMark));
+    canvas.add(semperMarkObj);
+
+    // --- Athlete name ---
+    calibrateAthleteNameReferenceSize();
+    athleteNameObj = lockObject(buildAthleteNameText(nameInput.value));
+    canvas.add(athleteNameObj);
+
+    // --- Línea + "SEMPER CROSSFIT" + caja "USA" (artwork oficial, no reconstruido) ---
+    semperCrossfitUsaObj = lockObject(await loadFixedArtwork(DESIGN_GROUP_SPEC.semperCrossfitArtwork));
+    canvas.add(semperCrossfitUsaObj);
 
     canvas.renderAll();
     statusEl.textContent = 'Listo.';
@@ -463,10 +556,11 @@
       };
       const rows = [
         report('shirtMockup', shirtMockup),
-        report('semperMark', designGroupObjects && designGroupObjects[0]),
-        report('semperCrossfitUsaArtwork', designGroupObjects && designGroupObjects[1]),
+        report('neckLabel (garmentBranding)', neckLabelObj),
+        report('countryFlag (' + TEMPLATE.fields.countryFlag.countryCode + ')', countryFlagObj),
+        report('semperMark', semperMarkObj),
         report('athleteName (' + JSON.stringify(nameInput.value) + ')', athleteNameObj),
-        report('countryFlag (' + TEMPLATE.fields.countryFlag.countryCode + ')', countryFlagObj)
+        report('semperCrossfitUsaArtwork', semperCrossfitUsaObj)
       ];
       console.log('%c[JMN Design Studio] Checkpoint de bounding boxes reales:', 'font-weight:bold');
       if (console.table) console.table(rows); else console.log(rows);
