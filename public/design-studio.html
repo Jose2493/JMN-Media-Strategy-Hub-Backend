@@ -513,6 +513,41 @@
       },
       { cssOnly: true }
     );
+
+    // SEGUNDO BUG REAL encontrado en producción (canvas en blanco hasta la
+    // primera interacción) -- confirmado igual que el anterior, leyendo el
+    // código fuente real de fabric.js 5.3.0 desde el navegador y
+    // reproduciéndolo en un canvas de prueba con getImageData():
+    //
+    // setDimensions() SIEMPRE llama a _initRetinaScaling() (incluso con
+    // cssOnly:true). En pantallas con devicePixelRatio > 1 (Retina/HiDPI --
+    // confirmado en el navegador de prueba: 1.104), _initRetinaScaling()
+    // hace lowerCanvasEl.setAttribute('width', ...) / ('height', ...) sobre
+    // el <canvas> real. Reasignar el atributo width/height de un <canvas>
+    // SIEMPRE limpia su bitmap ya dibujado -- es un efecto de la spec HTML,
+    // ocurre incluso si el valor asignado es idéntico al que ya tenía. Y
+    // como este cssOnly:true es precisamente lo que le dice a Fabric que
+    // NO haga su propio requestRenderAll() al final (así evita un repintado
+    // innecesario cuando de verdad no cambió nada) -- en este caso SÍ se
+    // limpió el bitmap como side effect, y nadie vuelve a pintarlo. El
+    // canvas queda en blanco hasta que otro código (el handler de
+    // nombre/bandera) llama a canvas.renderAll() por su cuenta -- por eso
+    // aparecía todo recién al primer input del usuario.
+    //
+    // Reproducido en aislado: render→rojo opaco antes; setDimensions(css
+    // Only:true) sin repintar después→pixel totalmente transparente
+    // (0,0,0,0); renderAll() posterior→vuelve a rojo opaco. Coincide exacto
+    // con el bug reportado.
+    //
+    // FIX: forzar un repintado explícito después de aplicar el tamaño CSS.
+    // calcOffset() NO hace falta agregarlo aparte -- setDimensions() ya lo
+    // llama internamente (se confirmó leyendo su código fuente). Tampoco
+    // hace falta envolver esto en un requestAnimationFrame manual --
+    // requestRenderAll() ya es fabric.util.requestAnimFrame(...) por dentro,
+    // así que ya se ejecuta en el próximo frame por sí solo. Esto cubre
+    // tanto la carga inicial como cualquier resize posterior (ventana o
+    // panel) en pantallas Retina/HiDPI, no solo el primer render.
+    canvas.requestRenderAll();
   }
 
   async function init() {
