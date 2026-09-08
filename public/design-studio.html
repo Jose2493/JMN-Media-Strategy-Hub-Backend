@@ -49,13 +49,13 @@
     align-items: center;
     justify-content: center;
     background: #f2f2f2; /* fondo neutro de mockup, el shirt PNG tiene transparencia */
-    overflow: auto;
+    overflow: hidden; /* fitCanvasToPreview() mantiene el canvas siempre dentro del panel -- nunca debería hacer falta scroll */
   }
-  #design-canvas-el {
-    /* dimensiones reales seteadas por JS; esto solo evita un salto visual antes de cargar */
-    max-width: 100%;
-    max-height: 100%;
-  }
+  /* El tamaño real en pantalla del canvas lo fija fitCanvasToPreview() vía
+     canvas.setDimensions({...}, {cssOnly:true}) -- eso escribe estilos
+     inline sobre el wrapper/canvases que genera Fabric, que siempre ganan
+     sobre cualquier regla de este stylesheet. No hay reglas de tamaño acá
+     a propósito, para no confundir sobre cuál es la fuente de verdad. */
   #panel {
     width: 280px;
     padding: 20px;
@@ -460,6 +460,37 @@
     });
   }
 
+  // --- Fit to View: escala SOLO la representación en pantalla del canvas ---
+  // No toca canvas.width/canvas.height (el backing store nativo que usa
+  // toDataURL() para el export), ni las coordenadas/tamaños de los objetos
+  // del template. Usa el mecanismo propio de Fabric para esto:
+  // setDimensions(dims, {cssOnly:true}) reescala únicamente los estilos CSS
+  // del wrapper .canvas-container y de los dos <canvas> que Fabric genera
+  // internamente (el "lower" de render y el "upper" de interacción),
+  // dejando canvas.width/canvas.height intactos.
+  const CANVAS_PREVIEW_PADDING = 24; // px de aire visual dentro de #canvas-wrap
+  function fitCanvasToPreview() {
+    if (!canvas) return;
+    const wrap = document.getElementById('canvas-wrap');
+    const availableWidth = wrap.clientWidth - CANVAS_PREVIEW_PADDING * 2;
+    const availableHeight = wrap.clientHeight - CANVAS_PREVIEW_PADDING * 2;
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+    const scale = Math.min(
+      availableWidth / TEMPLATE.canvas.width,
+      availableHeight / TEMPLATE.canvas.height
+    );
+    // Nunca agrandar más allá de la resolución nativa -- solo achicar la
+    // representación en pantalla cuando el panel es más chico que 1254x1254.
+    const displayScale = Math.min(scale, 1);
+    canvas.setDimensions(
+      {
+        width: TEMPLATE.canvas.width * displayScale,
+        height: TEMPLATE.canvas.height * displayScale
+      },
+      { cssOnly: true }
+    );
+  }
+
   async function init() {
     canvas = new fabric.Canvas('design-canvas-el', {
       width: TEMPLATE.canvas.width,
@@ -532,6 +563,21 @@
     canvas.renderAll();
     statusEl.textContent = 'Listo.';
     enableControls();
+
+    // --- Fit to View ---
+    // Tamaño inicial en pantalla + reajuste ante cualquier cambio de tamaño
+    // real de #canvas-wrap (ventana del navegador, o el panel derecho
+    // cambiando de ancho/alto). Solo afecta el CSS del canvas -- resolución
+    // interna, coordenadas del template y export quedan intactos.
+    fitCanvasToPreview();
+    const canvasWrapEl = document.getElementById('canvas-wrap');
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => fitCanvasToPreview()).observe(canvasWrapEl);
+    } else {
+      // Fallback para navegadores sin ResizeObserver: al menos cubre el
+      // caso de resize de ventana completa.
+      window.addEventListener('resize', fitCanvasToPreview);
+    }
 
     // -----------------------------------------------------------------
     // CHECKPOINT DE DEBUG TEMPORAL — pedido explícitamente para auditar el
