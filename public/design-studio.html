@@ -897,19 +897,39 @@
       return;
     }
 
+    let assets;
     try {
       const templateRes = await fetch('/api/design-template?slug=' + encodeURIComponent(DESIGN_TEMPLATE_SLUG), {
         headers: { 'Authorization': 'Bearer ' + sessionToken }
       });
-      if (!templateRes.ok) { denyAccess(); return; } // 401 (token inválido/expirado) o 403 (sin permiso)
+
+      if (!templateRes.ok) {
+        denyAccess();
+        return;
+      }
+
+      const templateData = await templateRes.json();
+      assets = templateData && templateData.template && templateData.template.assets;
+
+      if (
+        !assets ||
+        !assets.shirtMockup ||
+        !assets.semperMark ||
+        !assets.semperCrossfitUsa ||
+        !assets.neckLabel
+      ) {
+        denyAccess();
+        return;
+      }
     } catch (err) {
       denyAccess();
       return;
     }
 
-    // Autenticado Y autorizado para este template específico -- recién acá
-    // se revela el editor y se inicializa Fabric. Nada de lo anterior tocó
-    // el canvas, el template, ni ningún objeto de diseño.
+    TEMPLATE.shirtMockup.src = assets.shirtMockup;
+    DESIGN_GROUP_SPEC.semperMark.src = assets.semperMark;
+    DESIGN_GROUP_SPEC.semperCrossfitArtwork.src = assets.semperCrossfitUsa;
+    NECK_LABEL_SPEC.src = assets.neckLabel;
     accessGateEl.hidden = true;
     mainEl.hidden = false;
     init();
