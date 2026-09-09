@@ -43,6 +43,11 @@
     display: flex;
     overflow: hidden;
   }
+  /* #main fija su propio display:flex (arriba), lo que le gana en
+     especificidad al display:none del [hidden] del navegador (selector de
+     ID contra selector de atributo) -- sin esta regla, el atributo hidden
+     no ocultaría nada acá y el gate de autenticación no serviría de nada. */
+  #main[hidden] { display: none; }
   #canvas-wrap {
     flex: 1;
     display: flex;
@@ -101,6 +106,17 @@
     background: #5c4bc0;
   }
   #status { font-size: 12px; color: #8a8a95; }
+  #access-gate {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    font-size: 15px;
+    color: #8a8a95;
+  }
+  #access-gate[hidden] { display: none; }
 
   /* ---------------------------------------------------------------------
      Responsive móvil (<=768px) -- SOLO layout externo, nada de motor/canvas.
@@ -154,7 +170,13 @@
 
 <div id="topbar">JMN Design Studio</div>
 
-<div id="main">
+<!-- Sin sesión válida, este mensaje es lo único que se muestra. Este gate es
+     SOLO de UX -- el HTML/JS de esta página sigue siendo público en Vercel
+     igual que cualquier archivo estático; la autorización real la hace
+     /api/design-template en el servidor, nunca este script. -->
+<div id="access-gate">Access this Design Studio through your JMN Client Portal.</div>
+
+<div id="main" hidden>
   <div id="canvas-wrap">
     <canvas id="design-canvas-el"></canvas>
   </div>
@@ -810,7 +832,90 @@
     });
   }
 
-  init();
+  // -----------------------------------------------------------------------
+  // Autenticación de portal -- reutiliza EXACTAMENTE el mismo mecanismo que
+  // ya usa public/strategist.html (mismo repo backend): token de bootstrap
+  // de SuiteDash en el hash de la URL, intercambiado por un JWT de sesión
+  // vía /api/session-exchange (endpoint existente, sin tocar), JWT guardado
+  // solo en memoria (nunca localStorage/sessionStorage), y el hash de la URL
+  // se limpia con history.replaceState apenas se lee, haya éxito o no.
+  //
+  // Diferencia deliberada con strategist.html: acá el JWT por sí solo NO
+  // alcanza para mostrar el editor. Antes de revelar #main o llamar a
+  // init() (Fabric), se hace una segunda llamada a /api/design-template
+  // (endpoint nuevo) para confirmar que la company autenticada tiene
+  // permiso sobre ESTE template específico. Esa es la autorización real —
+  // se hace en el servidor, con el companyId tomado del JWT ya verificado,
+  // nunca de nada que mande el navegador. Este script solo decide si
+  // MUESTRA el editor; no decide si el acceso es válido.
+  //
+  // Cualquier falla (sin token, exchange rechazado, 401 de token inválido/
+  // expirado, o 403 de sesión válida sin permiso sobre este template) cae
+  // en el mismo mensaje genérico de #access-gate -- a propósito no se
+  // distingue el motivo en la UI, para no filtrar por oráculo si el
+  // problema es "no autenticado" vs "autenticado pero sin acceso".
+  const DESIGN_TEMPLATE_SLUG = 'semper-athlete-shirt-01';
+  const accessGateEl = document.getElementById('access-gate');
+  const mainEl = document.getElementById('main');
+
+  function denyAccess() {
+    mainEl.hidden = true;
+    accessGateEl.hidden = false;
+  }
+
+  async function authenticateAndStart() {
+    let bootstrapToken = null;
+    const match = window.location.hash.match(/token=([^&]+)/);
+    if (match) {
+      bootstrapToken = decodeURIComponent(match[1]);
+    }
+    // El hash se limpia siempre que se lee, incluso si el token termina
+    // siendo inválido -- nunca debe quedar visible en la URL ni en el
+    // historial del navegador.
+    if (match) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+
+    if (!bootstrapToken) {
+      denyAccess();
+      return;
+    }
+
+    let sessionToken;
+    try {
+      const exchangeRes = await fetch('/api/session-exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bootstrapToken })
+      });
+      if (!exchangeRes.ok) { denyAccess(); return; }
+      const exchangeData = await exchangeRes.json();
+      sessionToken = exchangeData.sessionToken; // JWT -- variable local, nunca storage
+      if (!sessionToken) { denyAccess(); return; }
+    } catch (err) {
+      denyAccess();
+      return;
+    }
+
+    try {
+      const templateRes = await fetch('/api/design-template?slug=' + encodeURIComponent(DESIGN_TEMPLATE_SLUG), {
+        headers: { 'Authorization': 'Bearer ' + sessionToken }
+      });
+      if (!templateRes.ok) { denyAccess(); return; } // 401 (token inválido/expirado) o 403 (sin permiso)
+    } catch (err) {
+      denyAccess();
+      return;
+    }
+
+    // Autenticado Y autorizado para este template específico -- recién acá
+    // se revela el editor y se inicializa Fabric. Nada de lo anterior tocó
+    // el canvas, el template, ni ningún objeto de diseño.
+    accessGateEl.hidden = true;
+    mainEl.hidden = false;
+    init();
+  }
+
+  authenticateAndStart();
 </script>
 
 </body>
