@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<div id="topbar">JMN Design Studio — V0.1</div>
+<div id="topbar">JMN Design Studio</div>
 
 <div id="main">
   <div id="canvas-wrap">
@@ -174,7 +174,7 @@
       </select>
     </div>
 
-    <button id="download-btn" disabled>Download PNG</button>
+    <button id="download-btn" disabled>Export Design</button>
     <div id="status">Cargando template...</div>
   </div>
 </div>
@@ -337,6 +337,16 @@
   }
 
   const statusEl = document.getElementById('status');
+
+  // El status vacío igual reservaba espacio: #panel es un flex column con
+  // gap:16px, así que aunque el <div> quedara sin texto (altura 0) el hueco
+  // del gap ANTES de él seguía ahí. setStatus() lo saca por completo del
+  // layout con el atributo hidden cuando no hay texto, y lo vuelve a mostrar
+  // solo para un estado de carga o un error real.
+  function setStatus(text) {
+    statusEl.textContent = text || '';
+    statusEl.hidden = !text;
+  }
   const nameInput = document.getElementById('athlete-name-input');
   const countrySelect = document.getElementById('country-select');
   const downloadBtn = document.getElementById('download-btn');
@@ -605,6 +615,14 @@
       hoverCursor: 'default'
     });
 
+    // El área de estado es SOLO para errores reales o estados temporales con
+    // sentido (p.ej. "Cargando..."), nunca para confirmar éxito -- por eso al
+    // final de un init() sin errores se deja vacía en vez de mostrar "Listo.".
+    // Esta bandera evita que ese vaciado al final borre un error real que ya
+    // se haya mostrado antes en el mismo init() (p.ej. el manifest.json de
+    // banderas faltante, más abajo).
+    let statusHasError = false;
+
     // Hay que confirmar que Quantico (700, itálica) ya cargó ANTES de medir o
     // dibujar texto -- si no, el fit-to-width/alto se calcularía con las
     // métricas de la fuente de fallback del navegador y quedaría mal
@@ -627,7 +645,8 @@
     } catch (err) {
       console.error('No se pudo cargar el listado de países:', err.message);
       countrySelect.innerHTML = '<option value="">No disponible</option>';
-      statusEl.textContent = 'Faltan los assets de banderas (public/assets/design-studio/flags/). Ver instrucciones del repo.';
+      statusHasError = true;
+      setStatus('Faltan los assets de banderas (public/assets/design-studio/flags/). Ver instrucciones del repo.');
     }
 
     // Orden de capas pedido explícitamente:
@@ -667,7 +686,12 @@
     canvas.add(semperCrossfitUsaObj);
 
     canvas.renderAll();
-    statusEl.textContent = 'Listo.';
+    // Sin mensaje de éxito visible para el cliente -- pedido explícito. El
+    // área de estado se deja vacía (salvo que ya tenga un error real
+    // pendiente de la carga del manifest de países, que no se debe pisar).
+    if (!statusHasError) {
+      setStatus('');
+    }
     enableControls();
 
     // --- Fit to View ---
