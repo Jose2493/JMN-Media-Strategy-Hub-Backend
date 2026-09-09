@@ -101,6 +101,53 @@
     background: #5c4bc0;
   }
   #status { font-size: 12px; color: #8a8a95; }
+
+  /* ---------------------------------------------------------------------
+     Responsive móvil (<=768px) -- SOLO layout externo, nada de motor/canvas.
+     Causa raíz encontrada al inspeccionar la hoja de estilos actual: #main
+     usa display:flex sin flex-direction (default "row") y NO existía
+     ningún media query en todo el archivo, así que las dos columnas
+     persistían a cualquier ancho; #panel tiene un width:280px fijo que, en
+     un viewport de teléfono (~375-414px), le deja a #canvas-wrap (flex:1)
+     apenas ~90-100px -- exactamente la "tira angosta" reportada.
+
+     Fix: en este breakpoint, #main pasa a columna (preview arriba a ancho
+     completo, controles abajo a ancho completo) y #panel pierde su ancho
+     fijo. fitCanvasToPreview() no se toca -- ya lee wrap.clientWidth/
+     clientHeight dinámicamente y el ResizeObserver existente (agregado en
+     el pase de Fit to View) ya reacciona solo a este cambio de layout;
+     verificado en vivo contra el sitio en Vercel ya desplegado: el propio
+     ResizeObserver de la página, sin tocar una línea de JS, redimensionó el
+     canvas correctamente al aplicar este mismo CSS (328px = (376px de
+     ancho - 24px*2 de padding), el resultado esperado). No hace falta
+     ningún cambio de JS para este pase.
+
+     aspect-ratio:1/1 en #canvas-wrap replica el 1254x1254 nativo del
+     template -- así el preview ocupa el ancho completo del viewport y
+     fitCanvasToPreview() calcula un solo scale consistente (ancho y alto
+     coinciden), sin necesidad de adivinar una altura fija en px. */
+  @media (max-width: 768px) {
+    body { height: auto; min-height: 100vh; }
+    #main { flex-direction: column; overflow: visible; }
+    #canvas-wrap {
+      flex: none;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      overflow: hidden; /* fitCanvasToPreview() siempre lo deja adentro; nunca debería recortar contenido real */
+    }
+    #panel {
+      width: 100%;
+      border-left: none;
+      border-top: 1px solid #1e1e26;
+    }
+    /* Objetivos táctiles cómodos + evitar el auto-zoom de iOS Safari en
+       inputs con font-size menor a 16px (comportamiento estándar del
+       navegador, no un bug de esta página). */
+    .field input, .field select, #download-btn {
+      min-height: 48px;
+      font-size: 16px;
+    }
+  }
 </style>
 </head>
 <body>
