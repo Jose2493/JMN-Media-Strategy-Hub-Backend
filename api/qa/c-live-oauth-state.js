@@ -4,7 +4,7 @@
 // This invokes the real lib/socialOAuthState.js against the live Supabase
 // project using Vercel Preview environment variables. It creates only
 // transient social_oauth_states rows, exercises one-time / concurrent
-// consumption, and deletes every state row it creates in a finally block.
+// consumption, and deletes every state row it creates before responding.
 // No raw state, hash, company/contact ID, secret, or database error is
 // returned or logged.
 
@@ -71,6 +71,9 @@ export default async function handler(req, res) {
     cleanup: false,
   };
 
+  let stage = 'setup';
+  let functionalChecks = false;
+
   try {
     // Use an already-existing contact/company pair solely as valid FK anchors.
     // No company/contact row is created, updated, or deleted by this runner.
@@ -81,7 +84,7 @@ export default async function handler(req, res) {
       .limit(1);
 
     if (contactError || !contacts || contacts.length !== 1) {
-      return res.status(500).json({ ok: false, stage: 'setup', checks });
+      throw new Error('setup failed');
     }
 
     const expected = {
@@ -89,7 +92,7 @@ export default async function handler(req, res) {
       companyId: contacts[0].company_id,
     };
 
-    // 1) Normal consume succeeds exactly once; replay is blocked.
+    stage = 'sequential';
     const sequentialState = await createSocialOAuthState({
       companyId: expected.companyId,
       contactId: expected.contactId,
@@ -110,8 +113,7 @@ export default async function handler(req, res) {
       })
     );
 
-    // 2) Real concurrency gate: two consumers race on the same fresh state.
-    // Exactly one must fulfill and exactly one must reject.
+    stage = 'concurrency';
     const concurrentState = await createSocialOAuthState({
       companyId: expected.companyId,
       contactId: expected.contactId,
@@ -130,8 +132,7 @@ export default async function handler(req, res) {
     checks.concurrentIdentityTrusted =
       fulfilled.length === 1 && sameIdentity(fulfilled[0].value, expected);
 
-    // 3) Wrong platform must not consume the state. A subsequent correct
-    // platform consume must still succeed.
+    stage = 'platform';
     const platformState = await createSocialOAuthState({
       companyId: expected.companyId,
       contactId: expected.contactId,
@@ -149,8 +150,7 @@ export default async function handler(req, res) {
     });
     checks.wrongPlatformDidNotConsume = sameIdentity(afterWrongPlatform, expected);
 
-    // 4) Expiry is enforced by the same atomic consume query. Only this
-    // runner's own state row is modified to simulate an expired callback.
+    stage = 'expiry';
     const expiredState = await createSocialOAuthState({
       companyId: expected.companyId,
       contactId: expected.contactId,
@@ -165,32 +165,19 @@ export default async function handler(req, res) {
       .eq('state_hash', expiredHash);
 
     if (expireError) {
-      return res.status(500).json({ ok: false, stage: 'expiry-setup', checks });
+      throw new Error('expiry setup failed');
     }
 
     checks.expiredBlocked = await mustReject(() =>
       consumeSocialOAuthState({ rawState: expiredState, platform: 'instagram' })
     );
 
-    const functionalChecks = Object.entries(checks)
+    functionalChecks = Object.entries(checks)
       .filter(([name]) => name !== 'cleanup')
       .every(([, value]) => value === true);
-
-    return res.status(functionalChecks ? 200 : 500).json({
-      ok: functionalChecks,
-      checks: {
-        sequentialConsume: checks.sequentialConsume,
-        replayBlocked: checks.replayBlocked,
-        concurrentExactlyOneSuccess: checks.concurrentExactlyOneSuccess,
-        concurrentIdentityTrusted: checks.concurrentIdentityTrusted,
-        wrongPlatformBlocked: checks.wrongPlatformBlocked,
-        wrongPlatformDidNotConsume: checks.wrongPlatformDidNotConsume,
-        expiredBlocked: checks.expiredBlocked,
-      },
-      createdStateCount: createdHashes.length,
-    });
+    stage = functionalChecks ? 'cleanup' : 'assertions';
   } catch {
-    return res.status(500).json({ ok: false, stage: 'execution', checks });
+    functionalChecks = false;
   } finally {
     if (createdHashes.length > 0) {
       try {
@@ -206,4 +193,13 @@ export default async function handler(req, res) {
       checks.cleanup = true;
     }
   }
+
+  const ok = functionalChecks && checks.cleanup;
+
+  return res.status(ok ? 200 : 500).json({
+    ok,
+    stage: ok ? 'complete' : stage,
+    checks,
+    createdStateCount: createdHashes.length,
+  });
 }
