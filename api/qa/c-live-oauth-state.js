@@ -44,8 +44,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
-    return res.status(500).json({ ok: false, stage: 'environment' });
+  const environment = {
+    supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
+    supabaseSecretConfigured: Boolean(process.env.SUPABASE_SECRET_KEY),
+  };
+
+  if (!environment.supabaseUrlConfigured || !environment.supabaseSecretConfigured) {
+    return res.status(500).json({ ok: false, stage: 'environment', environment });
   }
 
   const supabase = createClient(
@@ -75,8 +80,6 @@ export default async function handler(req, res) {
   let functionalChecks = false;
 
   try {
-    // Use an already-existing contact/company pair solely as valid FK anchors.
-    // No company/contact row is created, updated, or deleted by this runner.
     const { data: contacts, error: contactError } = await supabase
       .from('contacts')
       .select('id, company_id')
