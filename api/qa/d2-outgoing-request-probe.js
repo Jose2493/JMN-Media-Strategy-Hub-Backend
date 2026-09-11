@@ -19,8 +19,11 @@ export default async function handler(req, res) {
 
   const transport = req.query.transport === 'https' ? 'https' : 'fetch';
 
+  // Public neutral HTTPS endpoint so Preview Deployment Protection cannot
+  // intercept the outbound request before it reaches the target. Values are
+  // synthetic and intentionally non-secret.
   const targetUrl =
-    `https://${req.headers.host}/api/qa/d2-echo-target` +
+    'https://example.com/' +
     `?access_token=${encodeURIComponent(SYNTHETIC_ACCESS_TOKEN)}` +
     `&client_secret=${encodeURIComponent(SYNTHETIC_CLIENT_SECRET)}`;
 
