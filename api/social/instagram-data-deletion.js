@@ -1,5 +1,13 @@
-import { extractMetaSignedRequest, verifyMetaSignedRequest, createMetaDeletionConfirmation } from '../../lib/metaSignedRequest.js';
-import { deleteInstagramAccountDataByExternalId } from '../../lib/socialAccountDeletion.js';
+import {
+  extractMetaSignedRequest,
+  verifyMetaSignedRequest,
+  createMetaDeletionConfirmation,
+  MetaSignedRequestError,
+} from '../../lib/metaSignedRequest.js';
+import {
+  deleteInstagramAccountDataByExternalId,
+  SocialAccountDeletionError,
+} from '../../lib/socialAccountDeletion.js';
 
 const PUBLIC_BASE_URL = 'https://jmn-media-strategy-hub-backend.vercel.app';
 
@@ -34,7 +42,13 @@ export default async function handler(req, res) {
       url: statusUrl.toString(),
       confirmation_code: confirmationCode,
     });
-  } catch {
-    return res.status(400).json({ error: 'Invalid request' });
+  } catch (error) {
+    if (error instanceof MetaSignedRequestError) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+    if (error instanceof SocialAccountDeletionError) {
+      return res.status(500).json({ error: 'Unable to complete request' });
+    }
+    return res.status(500).json({ error: 'Unable to complete request' });
   }
 }
