@@ -1,6 +1,6 @@
 // DISPOSABLE -- Checkpoint C-Live release-gate runner.
 // Preview-only. Never merge this route to main.
-// Redeploy marker: Preview env variables configured for the C-Live branch.
+// Redeploy marker: retest after branch-specific SUPABASE_URL cleanup.
 //
 // This invokes the real lib/socialOAuthState.js against the live Supabase
 // project using Vercel Preview environment variables. It creates only
