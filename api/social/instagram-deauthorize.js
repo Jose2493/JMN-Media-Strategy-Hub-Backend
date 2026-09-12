@@ -1,5 +1,12 @@
-import { extractMetaSignedRequest, verifyMetaSignedRequest } from '../../lib/metaSignedRequest.js';
-import { deleteInstagramAccountDataByExternalId } from '../../lib/socialAccountDeletion.js';
+import {
+  extractMetaSignedRequest,
+  verifyMetaSignedRequest,
+  MetaSignedRequestError,
+} from '../../lib/metaSignedRequest.js';
+import {
+  deleteInstagramAccountDataByExternalId,
+  SocialAccountDeletionError,
+} from '../../lib/socialAccountDeletion.js';
 
 function setHeaders(res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -24,7 +31,13 @@ export default async function handler(req, res) {
     const { userId } = verifyMetaSignedRequest(signedRequest, appSecret);
     await deleteInstagramAccountDataByExternalId(userId);
     return res.status(200).json({ success: true });
-  } catch {
-    return res.status(400).json({ error: 'Invalid request' });
+  } catch (error) {
+    if (error instanceof MetaSignedRequestError) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+    if (error instanceof SocialAccountDeletionError) {
+      return res.status(500).json({ error: 'Unable to complete request' });
+    }
+    return res.status(500).json({ error: 'Unable to complete request' });
   }
 }
