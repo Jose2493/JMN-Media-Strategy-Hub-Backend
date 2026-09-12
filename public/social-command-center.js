@@ -225,6 +225,7 @@
 
       stopPopupPolling();
       authPopup = null;
+      if (sessionToken) connectBtn.disabled = false;
       if (!popupMessageHandled) {
         setFeedback('Instagram window closed. Checking connection status…');
         window.setTimeout(() => refreshStatus({ quiet: true }), 300);
