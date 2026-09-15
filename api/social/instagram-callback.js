@@ -104,6 +104,8 @@ export default async function handler(req, res) {
     console.error('[instagram-callback] failed', {
       name: error?.name || 'UnknownError',
       code: error instanceof InstagramOAuthFlowError ? error.code : 'UNEXPECTED',
+      providerCode: error instanceof InstagramOAuthFlowError ? error.providerCode : null,
+      providerStatus: error instanceof InstagramOAuthFlowError ? error.providerStatus : null,
     });
     const clientFailure = error instanceof InstagramOAuthFlowError &&
       ['INVALID_CALLBACK', 'INVALID_STATE', 'MISSING_REQUIRED_SCOPES', 'UNSUPPORTED_ACCOUNT_TYPE'].includes(error.code);
