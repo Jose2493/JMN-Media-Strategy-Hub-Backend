@@ -99,7 +99,12 @@ export default async function handler(req, res) {
     return sendCallbackPage(res, 'connected', 200);
   } catch (error) {
     // No raw provider error, authorization code, state, token, account ID, or
-    // Supabase error is reflected or logged. The opener receives only "error".
+    // Supabase error is reflected or logged. Record only the sanitized flow
+    // stage so production failures remain diagnosable without exposing secrets.
+    console.error('[instagram-callback] failed', {
+      name: error?.name || 'UnknownError',
+      code: error instanceof InstagramOAuthFlowError ? error.code : 'UNEXPECTED',
+    });
     const clientFailure = error instanceof InstagramOAuthFlowError &&
       ['INVALID_CALLBACK', 'INVALID_STATE', 'MISSING_REQUIRED_SCOPES', 'UNSUPPORTED_ACCOUNT_TYPE'].includes(error.code);
     return sendCallbackPage(res, 'error', clientFailure ? 400 : 500);
