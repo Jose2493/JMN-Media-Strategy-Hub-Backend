@@ -63,10 +63,15 @@
     let token = null;
     if (rawHash) {
       try {
-        const params = new URLSearchParams(rawHash);
-        const values = params.getAll('token');
-        if (values.length === 1 && values[0] && values[0].length <= MAX_BOOTSTRAP_LENGTH) {
-          token = values[0];
+        const prefix = 'token=';
+        if (rawHash.startsWith(prefix) && !rawHash.includes('&')) {
+          // URLSearchParams follows form-encoding rules and converts "+" to a
+          // space. Bootstrap tokens use standard Base64, where "+" is data,
+          // so decode the fragment value directly instead.
+          const value = decodeURIComponent(rawHash.slice(prefix.length));
+          if (value && value.length <= MAX_BOOTSTRAP_LENGTH) {
+            token = value;
+          }
         }
       } catch {}
 
