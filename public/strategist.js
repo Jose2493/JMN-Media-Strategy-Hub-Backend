@@ -2,12 +2,13 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
+let finishReveal=null;
 let token=null,bootstrap=null,expiryTimer=null,renewTimer=null,busy=false,initialized=false;
 let campaignId=null,conversationId=null,workspace={campaigns:[],threads:[]},pendingPost=null,nextCursor=null;
 const node=(tag,text,cls)=>{const el=document.createElement(tag);el.textContent=text;if(cls)el.className=cls;return el;};
 const status=text=>{$('status').textContent=text;$('status').hidden=!text;};
 function setBusy(value){busy=value;document.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=value || !token);}
-function lock(message){token=null;clearTimeout(expiryTimer);clearTimeout(renewTimer);$('workspace').hidden=true;$('gate').hidden=false;$('gate-text').textContent=message;document.querySelectorAll('dialog[open]').forEach(el=>el.close());setBusy(false);}
+function lock(message){finishReveal?.();token=null;clearTimeout(expiryTimer);clearTimeout(renewTimer);$('workspace').hidden=true;$('gate').hidden=false;$('gate-text').textContent=message;document.querySelectorAll('dialog[open]').forEach(el=>el.close());setBusy(false);}
 function installToken(value){
  try{const payload=JSON.parse(atob(value.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));const remaining=payload.exp*1000-Date.now();if(!Number.isFinite(remaining)||remaining<=0||remaining>3600000)throw Error();token=value;clearTimeout(expiryTimer);expiryTimer=setTimeout(()=>lock('Your session expired. Reopen this page from your client portal.'),remaining);return true;}catch{lock('Please reopen Strategist from your client portal.');return false;}
 }
@@ -40,6 +41,35 @@ function heading(metadata){
 }
 function showWelcome(){nextCursor=null;$('messages').replaceChildren();$('welcome').hidden=false;$('input-box').value='';heading(null);status('');}
 function addMessage(role,text){const el=node('div',text,'msg '+(role==='user'?'user':'assistant'));$('messages').append(el);return el;}
+async function revealReply(text) {
+ const log=$('messages');
+ if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){addMessage('assistant',text);log.scrollTop=log.scrollHeight;return;}
+ log.setAttribute('aria-busy','true');
+ const bubble=addMessage('assistant','');bubble.classList.add('revealing');
+ const skip=node('button','Show full response','reveal-skip');skip.type='button';log.append(skip);
+ // Presentation only: the complete response is already safely saved by the server.
+ const words=text.match(/\S+\s*|\s+/gu) || [text];
+ const duration=Math.min(7000,Math.max(900,words.length*35));
+ const start=performance.now();let timer=null,shown=0;
+ await new Promise(resolve=>{
+  const finish=()=>{
+   clearTimeout(timer);const follow=log.scrollHeight-log.scrollTop-log.clientHeight<100;
+   bubble.textContent=text;bubble.classList.remove('revealing');skip.remove();
+   log.setAttribute('aria-busy','false');finishReveal=null;
+   if(follow)log.scrollTop=log.scrollHeight;resolve();
+  };
+  finishReveal=finish;skip.onclick=finish;
+  const tick=()=>{
+   if(!token || !bubble.isConnected){finish();return;}
+   const next=Math.min(words.length,Math.max(1,Math.ceil((performance.now()-start)/duration*words.length)));
+   const follow=log.scrollHeight-log.scrollTop-log.clientHeight<100;
+   if(next>shown){bubble.textContent+=words.slice(shown,next).join('');shown=next;}
+   if(follow)log.scrollTop=log.scrollHeight;
+   if(shown===words.length){finish();return;}timer=setTimeout(tick,35);
+  };
+  tick();
+ });
+}
 async function refreshList(){workspace=await api('/api/strategist');renderSidebar();}
 function olderButton(){
  $('messages').querySelector('.older')?.remove();if(!nextCursor)return;
@@ -60,7 +90,8 @@ async function send(event){event?.preventDefault();const text=$('input-box').val
   $('welcome').hidden=true;user=addMessage('user',text);user.classList.add('pending');typing=node('div','Considering your context…','typing');$('messages').append(typing);$('messages').scrollTop=$('messages').scrollHeight;
   const data=await api('/api/chat',{message:text,conversationId});
   if(data.conversationId!==conversationId)throw Error('Conversation changed. Reopen it to see the saved reply.');
-  user.classList.remove('pending');typing.remove();addMessage('assistant',data.reply);$('input-box').value='';$('messages').scrollTop=$('messages').scrollHeight;
+  user.classList.remove('pending');typing.remove();$('input-box').value='';await revealReply(data.reply);
+  if(!token)return;
   try{await refreshList();}catch{status('Reply saved. The sidebar could not refresh; reopen the workspace to update it.');}
  }catch(e){user?.remove();typing?.remove();status(e.message);$('input-box').value=text;}finally{setBusy(false);if(token)$('input-box').focus();}
 }
