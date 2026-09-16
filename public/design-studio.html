@@ -86,7 +86,7 @@
     font-family: inherit;
   }
   .field input:focus, .field select:focus { outline: none; border-color: #6d5bd0; }
-  #download-btn {
+  .download-btn {
     margin-top: 8px;
     background: #6d5bd0;
     color: white;
@@ -98,11 +98,11 @@
     cursor: not-allowed;
     opacity: 0.5;
   }
-  #download-btn.enabled {
+  .download-btn.enabled {
     cursor: pointer;
     opacity: 1;
   }
-  #download-btn.enabled:hover {
+  .download-btn.enabled:hover {
     background: #5c4bc0;
   }
   #status { font-size: 12px; color: #8a8a95; }
@@ -159,7 +159,7 @@
     /* Objetivos táctiles cómodos + evitar el auto-zoom de iOS Safari en
        inputs con font-size menor a 16px (comportamiento estándar del
        navegador, no un bug de esta página). */
-    .field input, .field select, #download-btn {
+    .field input, .field select, .download-btn {
       min-height: 48px;
       font-size: 16px;
     }
@@ -196,7 +196,9 @@
       </select>
     </div>
 
-    <button id="download-btn" disabled>Export Design</button>
+    <button id="download-btn" class="download-btn" disabled>Download Mockup</button>
+    <button id="artwork-download-btn" class="download-btn" disabled>Download Artwork</button>
+    <div style="font-size:12px;color:#8a8a95">Artwork: transparent PNG without the shirt or neck label.</div>
     <div id="status">Cargando template...</div>
   </div>
 </div>
@@ -372,6 +374,7 @@
   const nameInput = document.getElementById('athlete-name-input');
   const countrySelect = document.getElementById('country-select');
   const downloadBtn = document.getElementById('download-btn');
+  const artworkDownloadBtn = document.getElementById('artwork-download-btn');
 
   let canvas;
   let shirtMockup, neckLabelObj, semperMarkObj, semperCrossfitUsaObj, athleteNameObj, countryFlagObj;
@@ -768,6 +771,8 @@
   function enableControls() {
     downloadBtn.disabled = false;
     downloadBtn.classList.add('enabled');
+    artworkDownloadBtn.disabled = false;
+    artworkDownloadBtn.classList.add('enabled');
   }
 
   // --- Athlete Name: edición en vivo (con auto-ajuste de tamaño por ancho) ---
@@ -786,16 +791,35 @@
   });
 
   // --- Download PNG ---
-  downloadBtn.addEventListener('click', () => {
+  function downloadDesign(artworkOnly = false) {
     if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: 'png' });
+    const garmentLayers = [shirtMockup, neckLabelObj].filter(Boolean);
+    const visibility = garmentLayers.map(obj => obj.visible);
+    const background = canvas.backgroundColor;
+    let dataURL;
+    try {
+      if (artworkOnly) {
+        garmentLayers.forEach(obj => obj.set('visible', false));
+        canvas.backgroundColor = '';
+      }
+      dataURL = canvas.toDataURL({ format: 'png', enableRetinaScaling: false });
+    } catch (err) {
+      setStatus('Export failed. Please try again.');
+      return;
+    } finally {
+      garmentLayers.forEach((obj, i) => obj.set('visible', visibility[i]));
+      canvas.backgroundColor = background;
+      canvas.requestRenderAll();
+    }
     const link = document.createElement('a');
     link.href = dataURL;
-    link.download = TEMPLATE.id + '.png';
+    link.download = TEMPLATE.id + (artworkOnly ? '-artwork' : '-mockup') + '.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  });
+  }
+  downloadBtn.addEventListener('click', () => downloadDesign());
+  artworkDownloadBtn.addEventListener('click', () => downloadDesign(true));
 
   function loadFlag(countryCode, onDone) {
     const slot = TEMPLATE.fields.countryFlag.slot;
