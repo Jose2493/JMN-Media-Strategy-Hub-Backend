@@ -155,6 +155,7 @@
     pillEl.textContent = connected ? `${accounts.length} connected` : 'Not connected';
     pillEl.className = connected ? 'pill connected' : 'pill';
 
+    let firstActive = true;
     for (const account of accounts) {
       if (!account || typeof account !== 'object') continue;
 
@@ -177,7 +178,104 @@
       status.textContent = safeText(account.status, 'Connected');
 
       row.append(left, status);
-      accountsEl.append(row);
+      const block = document.createElement('div');
+      block.className = 'account-block';
+      block.append(row);
+      accountsEl.append(block);
+      if (account.status === 'active') {
+        const panel = document.createElement('section');
+        panel.className = 'metrics-panel';
+        const top = document.createElement('div');
+        top.className = 'metrics-top';
+        const title = document.createElement('h3');
+        title.textContent = 'Instagram overview';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-secondary';
+        button.textContent = 'Load metrics';
+        const content = document.createElement('div');
+        content.className = 'metrics-content';
+        content.setAttribute('aria-live', 'polite');
+        top.append(title, button);
+        panel.append(top, content);
+        block.append(panel);
+        button.addEventListener('click', () => loadMetrics(account.id, content, button));
+        if (firstActive) {
+          firstActive = false;
+          loadMetrics(account.id, content, button);
+        }
+      }
+    }
+  }
+
+  function metricNode(tag, text, className) {
+    const el = document.createElement(tag);
+    el.textContent = text;
+    if (className) el.className = className;
+    return el;
+  }
+
+  async function loadMetrics(accountId, content, button) {
+    if (!sessionToken || button.disabled) return;
+    button.disabled = true;
+    content.replaceChildren(metricNode('p', 'Loading Instagram metrics…', 'metrics-message'));
+    try {
+      const response = await fetch('/api/social/instagram-metrics?account=' + encodeURIComponent(accountId), {
+        headers: { Authorization: `Bearer ${sessionToken}` }, cache: 'no-store'
+      });
+      if (response.status === 401) { denyAccess(); return; }
+      if (!response.ok) throw new Error(response.status === 409 ? 'RECONNECT' : 'METRICS_FAILED');
+      const data = await response.json();
+      if (!sessionToken || !content.isConnected) return;
+      if (data.accountId !== accountId) throw new Error('METRICS_FAILED');
+      content.replaceChildren();
+      const grid = metricNode('div', '', 'metrics-grid');
+      for (const [label, key] of [['Followers', 'followers'], ['Following', 'following']]) {
+        const card = metricNode('div', '', 'metric-card');
+        const value = data.profile?.[key];
+        card.append(metricNode('div', label, 'metric-label'), metricNode('div', Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : '—', 'metric-value'));
+        grid.append(card);
+      }
+      content.append(grid, metricNode('h4', 'Daily reach · last 7 days'));
+      content.append(metricNode('p', 'Unique accounts reached each day. Daily values are not a weekly unique total.', 'metrics-note'));
+      if (Array.isArray(data.dailyReach) && data.dailyReach.length) {
+        const table = document.createElement('table');
+        table.className = 'metrics-table';
+        const head = document.createElement('thead');
+        const headings = document.createElement('tr');
+        for (const title of ['24-hour period ending (UTC)', 'Accounts reached']) {
+          const th = metricNode('th', title); th.scope = 'col'; headings.append(th);
+        }
+        head.append(headings);
+        const body = document.createElement('tbody');
+        const max = Math.max(1, ...data.dailyReach.map(point => Number.isSafeInteger(point.value) ? point.value : 0));
+        for (const point of data.dailyReach) {
+          const row = document.createElement('tr');
+          const date = new Date(point.endTime);
+          if (Number.isNaN(date.getTime())) continue;
+          const label = metricNode('td', date.toISOString().slice(0, 16).replace('T', ' '));
+          const valid = Number.isSafeInteger(point.value) && point.value >= 0;
+          const value = metricNode('td', valid ? point.value.toLocaleString() : '—');
+          if (valid) {
+            const bar = metricNode('span', '', 'reach-bar');
+            bar.setAttribute('aria-hidden', 'true');
+            bar.style.width = `${Math.min(100, point.value / max * 100)}%`;
+            label.append(bar);
+          }
+          row.append(label, value); body.append(row);
+        }
+        table.append(head, body); content.append(table);
+      } else {
+        content.append(metricNode('p', data.dailyReach === null ? 'Reach is currently unavailable. Try refreshing later.' : 'Instagram has not returned daily reach for this period yet.', 'metrics-message'));
+      }
+      if (data.partial) content.append(metricNode('p', 'Some metrics could not be loaded. Missing values are shown as —, not zero.', 'metrics-note'));
+      const fetched = new Date(data.fetchedAt);
+      content.append(metricNode('p', `Retrieved ${Number.isNaN(fetched.getTime()) ? 'just now' : fetched.toLocaleString()}. Updates may take time to appear on Instagram. This view loads on demand; daily history is not saved yet.`, 'metrics-note'));
+    } catch (error) {
+      if (sessionToken && content.isConnected) content.replaceChildren(metricNode('p', error.message === 'RECONNECT' ? 'Reconnect Instagram to load metrics.' : 'Unable to load metrics. Try refreshing metrics.', 'metrics-message'));
+    } finally {
+      button.disabled = !sessionToken;
+      button.textContent = 'Refresh metrics';
     }
   }
 
@@ -189,7 +287,7 @@
       const accounts = await fetchStatus();
       if (!accounts) return;
       renderAccounts(accounts);
-      if (!quiet) setFeedback('Connection status updated.');
+      setFeedback(accounts.some(account => account?.status === 'active') ? 'Instagram connected.' : 'Connection status updated.', accounts.some(account => account?.status === 'active') ? 'success' : '');
     } catch {
       setFeedback('Unable to load Instagram connection status. Try again.', 'error');
     } finally {
