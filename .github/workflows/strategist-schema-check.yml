@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
     paths: [.github/workflows/strategist-schema-check.yml]
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/strategist-schema-check.yml, lib/strategistStore.js]
   workflow_dispatch: {}
 permissions:
   contents: read
