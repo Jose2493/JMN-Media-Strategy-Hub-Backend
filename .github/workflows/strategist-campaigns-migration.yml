@@ -1,0 +1,23 @@
+name: Add strategist campaign storage
+on:
+  push:
+    branches: [main]
+    paths: [supabase/migrations/20260916030000_strategist_campaigns.sql]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: strategist-campaigns-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply additive campaign schema
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260916030000_strategist_campaigns.sql
