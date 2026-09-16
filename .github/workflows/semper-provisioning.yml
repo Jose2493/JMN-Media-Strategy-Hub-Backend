@@ -1,0 +1,22 @@
+name: Provision Semper portal identity
+on:
+  push:
+    branches: [main]
+    paths:
+      - supabase/migrations/20260916043000_provision_semper_portal_identity.sql
+      - .github/workflows/semper-provisioning.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Provision scoped portal identity
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260916043000_provision_semper_portal_identity.sql
