@@ -1,5 +1,7 @@
-import jwt from 'jsonwebtoken';
-import { getCompanyMemory, formatMemoryForPrompt, updateCompanyMemory, insertMemoryFacts } from '../lib/memory.js';
+import { verifySocialSessionAuthorizationHeader } from '../lib/socialSession.js';
+import { strategistStore, UUID } from '../lib/strategistStore.js';
+import { formatCampaignContext } from '../lib/strategistContext.js';
+import { getCompanyMemory, formatMemoryForPrompt } from '../lib/memory.js';
 import { createConversation, getConversation, addMessage } from '../lib/repositories.js';
 import { maybeUpdateMemory } from '../lib/memoryExtraction.js';
 import { createClient } from '@supabase/supabase-js';
@@ -29,7 +31,16 @@ async function checkRateLimit(contactId) {
   return hourOk && dayOk;
 }
 
-export default async function handler(req, res) {
+export function createChatHandler({
+  verify = verifySocialSessionAuthorizationHeader, rateLimit = checkRateLimit,
+  findConversation = getConversation, newConversation = createConversation,
+  saveMessage = addMessage, getMetadata = (...args) => strategistStore.metadata(...args),
+  getMemory = getCompanyMemory, formatMemory = formatMemoryForPrompt,
+  updateMemory = maybeUpdateMemory, db = supabase, providerFetch = globalThis.fetch,
+} = {}) {
+return async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -38,17 +49,19 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const authHeader = req.headers.authorization || '';
-  const sessionToken = authHeader.replace('Bearer ', '');
   let contactId, companyId;
   try {
-    const decoded = jwt.verify(sessionToken, process.env.SESSION_JWT_SECRET);
+    const decoded = verify(authHeader);
     contactId = decoded.contactId;
     companyId = decoded.companyId;
   } catch {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
 
-  const withinLimit = await checkRateLimit(contactId);
+  const { message, conversationId: incomingConversationId, greeting } = req.body || {};
+  if ((message !== undefined && (typeof message !== 'string' || message.length > 6000)) || (greeting !== undefined && typeof greeting !== 'boolean') || (!message?.trim() && !greeting) || (incomingConversationId !== undefined && incomingConversationId !== null && (typeof incomingConversationId !== 'string' || !UUID.test(incomingConversationId)))) return res.status(400).json({ error: 'Invalid message or conversation' });
+
+  const withinLimit = await rateLimit(contactId);
   if (!withinLimit) {
     console.warn(`Rate limit exceeded for contact ${contactId}`);
     return res.status(429).json({
@@ -57,22 +70,23 @@ export default async function handler(req, res) {
     });
   }
 
-  const { message, conversationId: incomingConversationId, greeting } = req.body;
-  if (!message && !greeting) return res.status(400).json({ error: 'Missing message' });
 
   try {
     let conversationId = incomingConversationId;
     if (conversationId) {
-      await getConversation(companyId, conversationId);
+      const existing = await findConversation(companyId, conversationId);
+      if (existing.channel !== 'portal_ai_strategist') return res.status(404).json({error:'Conversation unavailable'});
     } else {
-      const conv = await createConversation(companyId, contactId);
+      const conv = await newConversation(companyId, contactId);
       conversationId = conv.id;
     }
 
-    const memory = await getCompanyMemory(companyId);
-    const memoryContext = formatMemoryForPrompt(memory);
+    const metadata = await getMetadata(companyId, conversationId);
+    const campaignContext = formatCampaignContext(metadata);
+    const memory = await getMemory(companyId);
+    const memoryContext = formatMemory(memory);
 
-    const systemPrompt = `You are Jose, founder of JMN Media. You're a strategic director, not a salesperson.
+    const systemPrompt = `You are JMN Media's AI Strategist, working with Jose and his team. Never impersonate Jose or claim to be human. You're a strategic director, not a salesperson.
 
 CORE PHILOSOPHY:
 - Perception influences trust. Trust influences decisions. Decisions influence growth.
@@ -91,20 +105,23 @@ APPROVED PACKAGES (exact names and prices, do not alter):
 - Signature Partnership — $2,400/month — 8 reels + 20 photos, expanded sessions
 
 PRICING FLOW: diagnose first, recommend one option with reasoning, then offer to compare the rest. Never dump the full list unprompted.
-${memoryContext}`;
+${memoryContext}
+${campaignContext}`;
 
-    const { data: recentMessages } = await supabase
+    const { data: recentMessages, error: historyError } = await db
       .from('messages').select('role, content')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .limit(20);
+      .eq('conversation_id', conversationId).eq('company_id', companyId)
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .limit(40);
+    if (historyError) throw new Error('History unavailable');
 
     const humanTurn = greeting
-      ? 'The client just opened a new session and has not said anything yet. Write only the warm opening message itself, 2-3 sentences, no preamble, no meta-commentary. If you have memory of this company above, reference something specific and relevant to pick up where things left off, in your own natural voice. If there is no memory yet, introduce yourself briefly as Jose from JMN Media and invite them to share what they are noticing about their brand.'
+      ? 'The client just opened a new session and has not said anything yet. Write only the warm opening message itself, 2-3 sentences, no preamble, no meta-commentary. If you have memory of this company above, reference something specific and relevant to pick up where things left off, in your own natural voice. If there is no memory yet, introduce yourself briefly as JMN Media’s AI Strategist and invite them to share what they are noticing about their brand.'
       : message;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await providerFetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: AbortSignal.timeout(45000),
       headers: {
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
@@ -112,33 +129,38 @@ ${memoryContext}`;
       },
       body: JSON.stringify({
         model: 'claude-opus-4-6',
-        max_tokens: 300,
+        max_tokens: 700,
         system: systemPrompt,
-        messages: [...(recentMessages || []).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: humanTurn }]
+        messages: [...(recentMessages || []).reverse().filter(m => ['user', 'assistant'].includes(m.role)).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: humanTurn }]
       })
     });
 
     const data = await response.json();
     if (!response.ok) {
-      console.error('Anthropic API error:', response.status, JSON.stringify(data));
-      return res.status(500).json({ error: 'Anthropic API error', details: data.error?.message });
+      console.error('Strategist provider unavailable:', response.status);
+      return res.status(500).json({ error: 'Strategist is temporarily unavailable. Please try again.' });
     }
-    const reply = data.content?.[0]?.text || 'Let me think about that...';
+    const reply = data.content?.filter(part => part.type === 'text' && typeof part.text === 'string').map(part => part.text).join('\n').trim();
+    if (!reply) throw new Error('Empty provider response');
 
     if (!greeting) {
-      await addMessage(companyId, contactId, conversationId, 'user', message);
+      await saveMessage(companyId, contactId, conversationId, 'user', message);
     }
-    await addMessage(companyId, contactId, conversationId, 'assistant', reply);
+    await saveMessage(companyId, contactId, conversationId, 'assistant', reply);
 
     try {
-      await maybeUpdateMemory(companyId, conversationId);
+      // Campaign decisions remain in their thread rather than contaminating global company memory.
+      if (!metadata?.campaign_id && !metadata?.social_context) await updateMemory(companyId, conversationId);
     } catch (memErr) {
-      console.error('Memory update failed (non-fatal):', memErr.message);
+      console.error('Memory update failed (non-fatal)');
     }
 
     return res.status(200).json({ reply, conversationId });
   } catch (error) {
-    console.error('Error:', error);
-    return res.status(500).json({ error: 'Failed to process message', details: error.message });
+    console.error('Strategist request failed');
+    return res.status(500).json({ error: 'Failed to process message. Please try again.' });
   }
 }
+
+}
+export default createChatHandler();
