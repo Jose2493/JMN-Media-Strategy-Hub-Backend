@@ -221,6 +221,83 @@
     return el;
   }
 
+  function renderContent(data, content) {
+    const section = metricNode('section', '', 'content-section');
+    const heading = metricNode('div', '', 'section-heading');
+    const title = metricNode('div', '');
+    title.append(metricNode('div', 'CONTENT INTELLIGENCE', 'section-kicker'), metricNode('h3', 'Make your next post count.'), metricNode('p', 'Explore your latest content and turn signals into a next step.', 'chart-subtitle'));
+    heading.append(title); section.append(heading);
+    const posts = Array.isArray(data.recentMedia) ? data.recentMedia : [];
+    const valid = n => Number.isSafeInteger(n) && n >= 0;
+    const number = n => valid(n) ? n.toLocaleString() : '—';
+    const total = p => valid(p.likes) && valid(p.comments) ? p.likes + p.comments : null;
+    const ranked = posts.filter(p => total(p) !== null).sort((a,b) => total(b) - total(a));
+    const date = p => p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : 'Date unavailable';
+    const label = p => p.caption?.trim() || 'Untitled post';
+    const type = p => ({VIDEO:'Video', IMAGE:'Photo', CAROUSEL_ALBUM:'Carousel'}[p.type] || 'Post');
+    if (!posts.length) {
+      section.append(metricNode('div', data.recentMedia === null ? 'Recent posts are unavailable right now. Update the overview to try again.' : 'Your recent posts will appear here when Instagram returns them.', 'content-empty'));
+      content.append(section); return;
+    }
+    const layout = metricNode('div', '', 'content-analysis');
+    const comparison = metricNode('section', '', 'chart-card');
+    comparison.append(metricNode('h3', 'Which posts start a conversation?'), metricNode('p', 'Top 5 by likes + comments · among the posts loaded below', 'chart-subtitle'));
+    const legend = metricNode('div', '', 'content-legend'); legend.append(metricNode('span','● Likes','likes-key'),metricNode('span','● Comments','comments-key')); comparison.append(legend);
+    const ceiling = Math.max(1, ...ranked.map(p => total(p)));
+    for (const p of ranked.slice(0,5)) {
+      const row = metricNode('div', '', 'comparison-row');
+      const name = metricNode('span', label(p), 'comparison-label'); name.title = label(p);
+      const bar = metricNode('div', '', 'comparison-track');
+      bar.setAttribute('role', 'img'); bar.setAttribute('aria-label', `${label(p)}: ${number(p.likes)} likes, ${number(p.comments)} comments`);
+      const likes = metricNode('span','','likes-bar'); likes.style.width = `${p.likes / ceiling * 100}%`;
+      const comments = metricNode('span','','comments-bar'); comments.style.width = `${p.comments / ceiling * 100}%`;
+      bar.append(likes,comments); row.append(name,bar,metricNode('strong',number(total(p)))); comparison.append(row);
+    }
+    if (!ranked.length) comparison.append(metricNode('p','Interaction counts are not available for these posts.','metrics-note'));
+    comparison.append(metricNode('p','Counts are cumulative per post, not a 7-day total. Older posts have had more time to collect interactions.','metrics-note'));
+    const advice = metricNode('aside','','recommendations');
+    advice.append(metricNode('div','✦ YOUR NEXT MOVES','section-kicker'),metricNode('h3','Small signals. Useful direction.'));
+    const addAdvice = (n, title, copy) => {
+      const item = metricNode('div','','recommendation'); item.append(metricNode('span',n,'recommendation-number'));
+      const body = metricNode('div',''); body.append(metricNode('h4',title),metricNode('p',copy)); item.append(body); advice.append(item);
+    };
+    const top = ranked[0];
+    if (top && total(top) > 0) addAdvice('01','Revisit your strongest idea', `Your ${type(top).toLowerCase()} from ${date(top)} has ${number(total(top))} likes + comments, the highest count in this sample. Try a follow-up with a fresh angle.`);
+    else addAdvice('01','Give people a reason to respond','Try a post that answers one specific customer question, then invite a reply. Compare its results here after publishing.');
+    const formats = [...new Set(posts.map(p => type(p)))];
+    addAdvice('02',formats.length === 1 ? 'Test another format' : 'Compare the message, too', formats.length === 1 ? `All ${posts.length} loaded posts are ${formats[0].toLowerCase()} content. Try the same useful idea in another format and compare the response.` : `This sample includes ${formats.join(', ').toLowerCase()}. Compare similar topics before attributing differences to the format.`);
+    addAdvice('03','Turn comments into your next brief','Open a post below, read the questions people ask, and use one as the starting point for your next post.');
+    advice.append(metricNode('p',`Suggestions based on ${posts.length} loaded posts. These are experiments to try, not performance forecasts.`,'metrics-note'));
+    layout.append(comparison,advice); section.append(layout);
+    const galleryHead = metricNode('div','','section-heading gallery-heading');
+    const galleryTitle = metricNode('div',''); galleryTitle.append(metricNode('h3','Your content, at a glance'),metricNode('p',`${posts.length} recent posts · thumbnail previews from Instagram`,'chart-subtitle'));
+    const sort = metricNode('select','','content-sort'); sort.setAttribute('aria-label','Sort recent posts');
+    for(const [value,text] of [['recent','Newest first'],['top','Most interactions']]) { const option = metricNode('option',text);option.value=value;sort.append(option); }
+    galleryHead.append(galleryTitle,sort);section.append(galleryHead);
+    const gallery = metricNode('div','','post-grid');
+    const more = metricNode('button','','btn btn-secondary show-posts'); more.type='button';
+    let expanded = false;
+    function draw() {
+      gallery.replaceChildren();
+      const ordered = [...posts].sort(sort.value === 'top' ? (a,b) => (total(b) ?? -1) - (total(a) ?? -1) : (a,b) => (Date.parse(b.timestamp)||0) - (Date.parse(a.timestamp)||0));
+      for (const p of ordered.slice(0, expanded ? 12 : 6)) {
+        const card = metricNode('article','','post-card');
+        const preview = metricNode('div','','post-preview');
+        const placeholder = metricNode('span',type(p),'post-placeholder');preview.append(placeholder);
+        if (p.thumbnailUrl) { const img=document.createElement('img');img.alt=label(p).slice(0,150);img.loading='lazy';img.referrerPolicy='no-referrer';img.src=p.thumbnailUrl;img.addEventListener('error',()=>img.remove(),{once:true});preview.append(img); }
+        preview.append(metricNode('span',type(p),'post-type'));
+        const body = metricNode('div','','post-body');
+        const caption=metricNode('h4',label(p));caption.title=label(p);
+        body.append(metricNode('span',date(p),'post-date'),caption);
+        const stats=metricNode('div','','post-stats');stats.append(metricNode('span',`♡ ${number(p.likes)} likes`),metricNode('span',`◌ ${number(p.comments)} comments`));body.append(stats);
+        if (p.permalink) {const link=metricNode('a','View on Instagram ↗','post-link');link.href=p.permalink;link.target='_blank';link.rel='noopener noreferrer';body.append(link);}
+        card.append(preview,body);gallery.append(card);
+      }
+      more.hidden=posts.length<=6;more.textContent=expanded?'Show fewer posts':`Show all ${posts.length} posts`;more.setAttribute('aria-expanded',String(expanded));
+    }
+    sort.addEventListener('change',draw);more.addEventListener('click',()=>{expanded=!expanded;draw();});draw();section.append(gallery,more);content.append(section);
+  }
+
   function renderMetrics(data, content) {
     content.replaceChildren();
     const isCount = value => Number.isSafeInteger(value) && value >= 0;
@@ -316,6 +393,7 @@
     insight.append(metricNode('div', `${available.length} of 7 daily values available · Based on Instagram data`, 'insight-tag'));
     layout.append(chart, insight); content.append(layout);
     if (data.partial) content.append(metricNode('p', 'Some data is temporarily unavailable. Your connection is still saved.', 'metrics-warning'));
+    renderContent(data, content);
     const footer = metricNode('div', '', 'overview-footer');
     const details = metricNode('details', '', 'data-details');
     details.append(metricNode('summary', 'View daily values & details'));
