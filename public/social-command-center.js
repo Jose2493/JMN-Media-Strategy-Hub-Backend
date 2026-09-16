@@ -145,15 +145,17 @@
     if (typeof value !== 'string' || !value) return 'Unknown expiry';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'Unknown expiry';
-    return `Token valid until ${date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+    return `Access expires ${date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
   }
 
   function renderAccounts(accounts) {
     accountsEl.replaceChildren();
-    const connected = accounts.length > 0;
-    emptyStateEl.hidden = connected;
-    pillEl.textContent = connected ? `${accounts.length} connected` : 'Not connected';
+    const connected = accounts.some(account => account?.status === 'active');
+    emptyStateEl.hidden = accounts.length > 0;
+    pillEl.textContent = connected ? 'Connected' : 'Not connected';
     pillEl.className = connected ? 'pill connected' : 'pill';
+    document.querySelector('.connection-settings').open = !connected;
+    connectBtn.textContent = connected ? 'Connect another account' : 'Connect Instagram';
 
     let firstActive = true;
     for (const account of accounts) {
@@ -163,21 +165,27 @@
       row.className = 'account';
 
       const left = document.createElement('div');
+      const identity = document.createElement('div');
+      identity.className = 'account-identity';
+      const avatar = metricNode('div', safeText(account.username, 'IG').slice(0, 2).toUpperCase(), 'account-avatar');
+      avatar.setAttribute('aria-hidden', 'true');
       const name = document.createElement('div');
       name.className = 'account-name';
       name.textContent = `@${safeText(account.username, 'instagram')}`;
 
       const meta = document.createElement('div');
       meta.className = 'account-meta';
-      meta.textContent = `${formatAccountType(account.accountType)} · ${formatDate(account.tokenExpiresAt)}`;
+      meta.textContent = `${formatAccountType(account.accountType)} account`;
+      meta.title = formatDate(account.tokenExpiresAt);
 
       left.append(name, meta);
+      identity.append(avatar, left);
 
       const status = document.createElement('div');
       status.className = 'account-status';
       status.textContent = safeText(account.status, 'Connected');
 
-      row.append(left, status);
+      row.append(identity, status);
       const block = document.createElement('div');
       block.className = 'account-block';
       block.append(row);
@@ -185,25 +193,23 @@
       if (account.status === 'active') {
         const panel = document.createElement('section');
         panel.className = 'metrics-panel';
-        const top = document.createElement('div');
-        top.className = 'metrics-top';
-        const title = document.createElement('h3');
-        title.textContent = 'Instagram overview';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'btn btn-secondary';
-        button.textContent = 'Load metrics';
+        button.textContent = '↻ Update overview';
         const content = document.createElement('div');
         content.className = 'metrics-content';
         content.setAttribute('aria-live', 'polite');
-        top.append(title, button);
-        panel.append(top, content);
+        row.append(button);
+        panel.append(content);
         block.append(panel);
         button.addEventListener('click', () => loadMetrics(account.id, content, button));
         if (firstActive) {
           firstActive = false;
           loadMetrics(account.id, content, button);
         }
+      } else {
+        block.append(metricNode('p', 'This connection needs attention. Open Manage connection to reconnect your account.', 'metrics-message'));
       }
     }
   }
@@ -215,10 +221,126 @@
     return el;
   }
 
+  function renderMetrics(data, content) {
+    content.replaceChildren();
+    const isCount = value => Number.isSafeInteger(value) && value >= 0;
+    const number = value => isCount(value) ? value.toLocaleString() : '—';
+    const points = (Array.isArray(data.dailyReach) ? data.dailyReach : [])
+      .filter(point => point && Number.isFinite(Date.parse(point.endTime)))
+      .sort((a, b) => a.endTime.localeCompare(b.endTime)).slice(-7);
+    const available = points.filter(point => isCount(point.value));
+    const peak = available.length ? Math.max(...available.map(point => point.value)) : null;
+    const best = available.find(point => point.value === peak);
+    const shortDate = value => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const endDate = value => new Date(value).toISOString().slice(0,16).replace('T',' ') + ' UTC';
+    const grid = metricNode('div', '', 'metrics-grid');
+    for (const item of [
+      ['Followers', data.profile?.followers, 'Your current audience', '↗'],
+      ['Following', data.profile?.following, 'Accounts you follow', '◎'],
+      ['Peak daily reach', peak, best ? `Period ending ${shortDate(best.endTime)}` : 'Waiting for data', '⌁'],
+    ]) {
+      const card = metricNode('div', '', 'metric-card');
+      const glyph = metricNode('span', item[3], 'metric-glyph'); glyph.setAttribute('aria-hidden', 'true');
+      card.append(metricNode('div', item[0], 'metric-label'), metricNode('div', number(item[1]), 'metric-value'), metricNode('div', item[2], 'metric-caption'), glyph);
+      grid.append(card);
+    }
+    content.append(grid);
+    const layout = metricNode('div', '', 'overview-layout');
+    const chart = metricNode('section', '', 'chart-card');
+    chart.setAttribute('aria-label', 'Daily Instagram reach');
+    const heading = metricNode('div', '', 'chart-heading');
+    const title = metricNode('div', '');
+    title.append(metricNode('h3', 'How far your content travels'), metricNode('p', 'Daily reach · unique accounts', 'chart-subtitle'));
+    heading.append(title, metricNode('span', 'Last 7 days', 'chart-period'));
+    chart.append(heading);
+    if (points.length && available.length) {
+      const reading = metricNode('div', '', 'chart-reading');
+      reading.setAttribute('aria-live', 'polite');
+      const frame = metricNode('div', '', 'chart-frame');
+      const axis = metricNode('div', '', 'chart-axis'); axis.setAttribute('aria-hidden', 'true');
+      const ceiling = Math.max(2, peak);
+      axis.append(metricNode('span', ceiling.toLocaleString()), metricNode('span', Math.round(ceiling / 2).toLocaleString()), metricNode('span', '0'));
+      const plot = metricNode('div', '', 'chart-plot');
+      plot.style.gridTemplateColumns = `repeat(${points.length}, minmax(0, 1fr))`;
+      plot.setAttribute('role', 'group'); plot.setAttribute('aria-label', 'Choose a day to see its reach');
+      const buttons = [];
+      const select = index => {
+        const point = points[index];
+        for (const [i, button] of buttons.entries()) {
+          button.classList.toggle('selected', i === index);
+          button.setAttribute('aria-pressed', String(i === index));
+        }
+        reading.replaceChildren(metricNode('strong', number(point.value)), metricNode('span', ` ${point.value === 1 ? 'account' : 'accounts'} reached · ${shortDate(point.endTime)}`));
+        if (!isCount(point.value)) reading.replaceChildren(metricNode('span', `No data available · ${shortDate(point.endTime)}`));
+      };
+      points.forEach((point, index) => {
+        const button = metricNode('button', '', 'chart-column'); button.type = 'button';
+        button.setAttribute('aria-label', `${isCount(point.value) ? number(point.value) + ' accounts reached' : 'No data'}, 24 hours ending ${endDate(point.endTime)}`);
+        button.title = `24 hours ending ${endDate(point.endTime)}: ${number(point.value)}`;
+        const track = metricNode('span', '', 'bar-track');
+        const bar = metricNode('span', '', 'chart-bar' + (!isCount(point.value) ? ' missing' : point.value === 0 ? ' zero' : ''));
+        bar.style.setProperty('--bar-height', `${isCount(point.value) ? point.value / ceiling * 100 : 0}%`);
+        track.append(bar); button.append(track, metricNode('span', shortDate(point.endTime), 'bar-label'));
+        button.addEventListener('mouseenter', () => select(index));
+        button.addEventListener('focus', () => select(index));
+        button.addEventListener('click', () => select(index));
+        button.addEventListener('keydown', event => {
+          if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+          event.preventDefault();
+          const target = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[target].focus();
+        });
+        buttons.push(button); plot.append(button);
+      });
+      select(points.length - 1);
+      frame.append(axis, plot); chart.append(reading, frame);
+      chart.append(metricNode('p', 'Choose a day to explore its reach.', 'chart-foot'));
+    } else {
+      const empty = metricNode('div', '', 'chart-empty');
+      empty.append(metricNode('strong', 'Your story is still taking shape.'), metricNode('span', data.dailyReach === null ? 'Reach is unavailable right now. Try updating later.' : 'Instagram has not returned reach for this period yet.'));
+      chart.append(empty);
+    }
+    const insight = metricNode('aside', '', 'insight-card');
+    const icon = metricNode('div', '✦', 'insight-icon'); icon.setAttribute('aria-hidden', 'true');
+    insight.append(icon, metricNode('div', 'At a glance', 'insight-eyebrow'));
+    if (best && peak > 0) {
+      insight.append(metricNode('h3', `${shortDate(best.endTime)} led the week.`));
+      const stat = metricNode('div', '', 'insight-stat');
+      stat.append(metricNode('strong', number(peak)), metricNode('span', peak === 1 ? 'account reached' : 'accounts reached')); insight.append(stat);
+      insight.append(metricNode('p', 'Your highest daily reach in the available data. Review what you shared around this period to help plan your next post.', 'insight-copy'));
+    } else if (best) {
+      insight.append(metricNode('h3', 'A quiet week.'), metricNode('p', 'Instagram reported zero reach for the available days. A useful post for your audience is a practical next step.', 'insight-copy'));
+    } else {
+      insight.append(metricNode('h3', 'Ready for the next signal.'), metricNode('p', 'Your account is connected. This snapshot will take shape as Instagram makes reach data available.', 'insight-copy'));
+    }
+    insight.append(metricNode('div', `${available.length} of 7 daily values available · Based on Instagram data`, 'insight-tag'));
+    layout.append(chart, insight); content.append(layout);
+    if (data.partial) content.append(metricNode('p', 'Some data is temporarily unavailable. Your connection is still saved.', 'metrics-warning'));
+    const footer = metricNode('div', '', 'overview-footer');
+    const details = metricNode('details', '', 'data-details');
+    details.append(metricNode('summary', 'View daily values & details'));
+    details.append(metricNode('p', 'Dates mark the end of Instagram’s 24-hour reporting periods in UTC. Daily reach counts unique accounts for each period; adding days does not give a unique weekly audience. — means unavailable.', 'metrics-note'));
+    if (points.length) {
+      const table = metricNode('table', '', 'metrics-table');
+      const head = document.createElement('thead'); const tr = document.createElement('tr');
+      for (const text of ['Period ending (UTC)', 'Accounts reached']) { const th = metricNode('th', text); th.scope = 'col'; tr.append(th); }
+      head.append(tr); const body = document.createElement('tbody');
+      for (const point of points) { const row = document.createElement('tr'); row.append(metricNode('td', endDate(point.endTime)), metricNode('td', number(point.value))); body.append(row); }
+      table.append(head, body); details.append(table);
+    }
+    details.append(metricNode('p', 'Data is retrieved on demand and may be delayed by Instagram. A daily history is not saved yet.', 'metrics-note'));
+    const fetched = new Date(data.fetchedAt);
+    const updated = metricNode('span', Number.isNaN(fetched.getTime()) ? 'Instagram data' : `Updated ${fetched.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`, 'updated-label');
+    if (!Number.isNaN(fetched.getTime())) updated.title = fetched.toLocaleString();
+    footer.append(details, updated); content.append(footer);
+  }
+
   async function loadMetrics(accountId, content, button) {
     if (!sessionToken || button.disabled) return;
     button.disabled = true;
-    content.replaceChildren(metricNode('p', 'Loading Instagram metrics…', 'metrics-message'));
+    button.textContent = 'Updating…';
+    if (!content.childElementCount) content.replaceChildren(metricNode('p', 'Bringing your audience into focus…', 'metrics-message'));
+    content.setAttribute('aria-busy', 'true');
     try {
       const response = await fetch('/api/social/instagram-metrics?account=' + encodeURIComponent(accountId), {
         headers: { Authorization: `Bearer ${sessionToken}` }, cache: 'no-store'
@@ -228,54 +350,13 @@
       const data = await response.json();
       if (!sessionToken || !content.isConnected) return;
       if (data.accountId !== accountId) throw new Error('METRICS_FAILED');
-      content.replaceChildren();
-      const grid = metricNode('div', '', 'metrics-grid');
-      for (const [label, key] of [['Followers', 'followers'], ['Following', 'following']]) {
-        const card = metricNode('div', '', 'metric-card');
-        const value = data.profile?.[key];
-        card.append(metricNode('div', label, 'metric-label'), metricNode('div', Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : '—', 'metric-value'));
-        grid.append(card);
-      }
-      content.append(grid, metricNode('h4', 'Daily reach · last 7 days'));
-      content.append(metricNode('p', 'Unique accounts reached each day. Daily values are not a weekly unique total.', 'metrics-note'));
-      if (Array.isArray(data.dailyReach) && data.dailyReach.length) {
-        const table = document.createElement('table');
-        table.className = 'metrics-table';
-        const head = document.createElement('thead');
-        const headings = document.createElement('tr');
-        for (const title of ['24-hour period ending (UTC)', 'Accounts reached']) {
-          const th = metricNode('th', title); th.scope = 'col'; headings.append(th);
-        }
-        head.append(headings);
-        const body = document.createElement('tbody');
-        const max = Math.max(1, ...data.dailyReach.map(point => Number.isSafeInteger(point.value) ? point.value : 0));
-        for (const point of data.dailyReach) {
-          const row = document.createElement('tr');
-          const date = new Date(point.endTime);
-          if (Number.isNaN(date.getTime())) continue;
-          const label = metricNode('td', date.toISOString().slice(0, 16).replace('T', ' '));
-          const valid = Number.isSafeInteger(point.value) && point.value >= 0;
-          const value = metricNode('td', valid ? point.value.toLocaleString() : '—');
-          if (valid) {
-            const bar = metricNode('span', '', 'reach-bar');
-            bar.setAttribute('aria-hidden', 'true');
-            bar.style.width = `${Math.min(100, point.value / max * 100)}%`;
-            label.append(bar);
-          }
-          row.append(label, value); body.append(row);
-        }
-        table.append(head, body); content.append(table);
-      } else {
-        content.append(metricNode('p', data.dailyReach === null ? 'Reach is currently unavailable. Try refreshing later.' : 'Instagram has not returned daily reach for this period yet.', 'metrics-message'));
-      }
-      if (data.partial) content.append(metricNode('p', 'Some metrics could not be loaded. Missing values are shown as —, not zero.', 'metrics-note'));
-      const fetched = new Date(data.fetchedAt);
-      content.append(metricNode('p', `Retrieved ${Number.isNaN(fetched.getTime()) ? 'just now' : fetched.toLocaleString()}. Updates may take time to appear on Instagram. This view loads on demand; daily history is not saved yet.`, 'metrics-note'));
+      renderMetrics(data, content);
     } catch (error) {
       if (sessionToken && content.isConnected) content.replaceChildren(metricNode('p', error.message === 'RECONNECT' ? 'Reconnect Instagram to load metrics.' : 'Unable to load metrics. Try refreshing metrics.', 'metrics-message'));
     } finally {
       button.disabled = !sessionToken;
-      button.textContent = 'Refresh metrics';
+      button.textContent = '↻ Update overview';
+      content.setAttribute('aria-busy', 'false');
     }
   }
 
