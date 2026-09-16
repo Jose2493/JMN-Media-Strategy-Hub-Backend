@@ -17,6 +17,7 @@
   const refreshBtn = document.getElementById('refresh-btn');
   const feedbackEl = document.getElementById('feedback');
 
+  let strategistDialog = null;
   let sessionToken = null;
   let sessionExpiryTimer = null;
   let authPopup = null;
@@ -34,6 +35,7 @@
   }
 
   function denyAccess() {
+    strategistDialog?.close();
     sessionToken = null;
     if (sessionExpiryTimer) {
       clearTimeout(sessionExpiryTimer);
@@ -221,6 +223,31 @@
     return el;
   }
 
+  function discussPost(accountId, mediaId, trigger) {
+    if (!sessionToken) return;
+    strategistDialog?.close();
+    const dialog = document.createElement('dialog');
+    dialog.className = 'strategist-dialog';
+    dialog.setAttribute('aria-label', 'Discuss this post with JMN Strategist');
+    const bar = metricNode('div', '', 'strategist-dialog-bar');
+    bar.append(metricNode('strong', 'JMN Strategist · Campaign workspace'));
+    const close = metricNode('button', 'Back to Social Center ×', 'btn btn-secondary');
+    close.type = 'button'; close.addEventListener('click', () => dialog.close()); bar.append(close);
+    const frame = document.createElement('iframe');
+    frame.title = 'JMN Strategist campaign conversations';
+    frame.referrerPolicy = 'no-referrer';
+    frame.src = '/strategist.html?embedded=1';
+    let delivered = false;
+    const ready = event => {
+      if (delivered || !sessionToken || event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.type !== 'jmn:strategist-ready') return;
+      delivered = true;
+      frame.contentWindow.postMessage({type:'jmn:strategist-init',sessionToken,post:{accountId,mediaId}},location.origin);
+    };
+    window.addEventListener('message',ready);
+    dialog.addEventListener('close',()=>{window.removeEventListener('message',ready);dialog.remove();if(strategistDialog===dialog)strategistDialog=null;trigger?.focus();},{once:true});
+    dialog.append(bar,frame);document.body.append(dialog);strategistDialog=dialog;dialog.showModal();
+  }
+
   function renderContent(data, content) {
     const section = metricNode('section', '', 'content-section');
     const heading = metricNode('div', '', 'section-heading');
@@ -291,6 +318,9 @@
         body.append(metricNode('span',date(p),'post-date'),caption);
         const stats=metricNode('div','','post-stats');stats.append(metricNode('span',`♡ ${number(p.likes)} likes`),metricNode('span',`◌ ${number(p.comments)} comments`));body.append(stats);
         if (p.permalink) {const link=metricNode('a','View on Instagram ↗','post-link');link.href=p.permalink;link.target='_blank';link.rel='noopener noreferrer';body.append(link);}
+        const discuss = metricNode('button', 'Discuss with Strategist ↗', 'btn btn-secondary discuss-post');
+        discuss.type = 'button';discuss.setAttribute('aria-label', 'Discuss post: ' + label(p).slice(0,100));
+        discuss.addEventListener('click', () => discussPost(data.accountId, p.id, discuss));body.append(discuss);
         card.append(preview,body);gallery.append(card);
       }
       more.hidden=posts.length<=6;more.textContent=expanded?'Show fewer posts':`Show all ${posts.length} posts`;more.setAttribute('aria-expanded',String(expanded));
