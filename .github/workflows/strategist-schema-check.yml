@@ -20,5 +20,11 @@ jobs:
           begin read only;
           select table_name,column_name,data_type from information_schema.columns where table_schema='public' and table_name in ('conversations','messages','strategist_campaigns','strategist_threads') order by table_name,ordinal_position;
           select table_name,privilege_type from information_schema.role_table_grants where grantee='service_role' and table_schema='public' and table_name in ('conversations','messages','strategist_campaigns','strategist_threads') order by table_name,privilege_type;
+          set local role service_role;
+          -- Compile the actual list projections/order under the application's DB role.
+          -- WHERE false guarantees no client data is read or printed.
+          select id,name,objective,created_at from public.strategist_campaigns where false order by created_at desc limit 100;
+          select id,started_at as created_at,last_message_at from public.conversations where false and channel='portal_ai_strategist' order by started_at desc limit 200;
+          select conversation_id,campaign_id,title from public.strategist_threads where false;
           rollback;
           SQL
