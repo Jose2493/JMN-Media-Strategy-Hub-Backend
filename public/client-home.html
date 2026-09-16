@@ -1,114 +1,44 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
-  <title>JMN Client Home</title>
-  <link rel="stylesheet" href="/client-home.css">
-  <script defer src="/client-home.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+<title>JMN Client Home</title>
+<link rel="stylesheet" href="/client-home.css"><script defer src="/client-home.js"></script>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero" aria-labelledby="welcome-title">
-      <div class="hero-copy">
-        <p class="eyebrow">SEMPER CROSSFIT <span>/</span> JMN CLIENT PORTAL</p>
-        <h1 id="welcome-title">Good work starts with a clear next move.</h1>
-        <p class="intro">This is your home for content, strategy and delivery. We will keep the important work visible, so you always know what matters next.</p>
-        <div class="hero-actions">
-          <button class="primary" type="button" data-open="strategist">Build the next campaign <span>↗</span></button>
-          <button class="quiet" type="button" data-open="social">See Social Center <span>↗</span></button>
-        </div>
-      </div>
-      <aside class="signal-card" aria-label="Current campaign status">
-        <div class="signal-icon">✦</div>
-        <p class="eyebrow">CURRENT FOCUS</p>
-        <h2>New memberships</h2>
-        <p>Build a clear path from your content to trial-class inquiries.</p>
-        <button class="text-action" type="button" data-open="strategist">Open campaign workspace <span>→</span></button>
-      </aside>
-    </section>
-
-    <section class="ticker" aria-label="JMN updates">
-      <span class="ticker-label"><i></i> JMN LIVE</span>
-      <div class="ticker-window">
-        <div class="ticker-track">
-          <span>Instagram is connected</span><b>•</b>
-          <span>Start your membership campaign in JMN Strategist</span><b>•</b>
-          <span>Review your latest content in Social Center</span><b>•</b>
-          <span>Instagram is connected</span><b>•</b>
-          <span>Start your membership campaign in JMN Strategist</span><b>•</b>
-          <span>Review your latest content in Social Center</span><b>•</b>
-        </div>
-      </div>
-    </section>
-
-    <section class="section-heading">
-      <div>
-        <p class="eyebrow">START HERE</p>
-        <h2>Your first week, organized.</h2>
-      </div>
-      <div class="progress"><span data-progress-count>0 of 3 complete</span><i data-progress-bar></i></div>
-    </section>
-
-    <section class="onboarding-grid" aria-label="Onboarding checklist">
-      <button class="onboarding-card" data-onboarding-step data-action="strategist" type="button">
-        <span class="step-number">01</span>
-        <span class="step-copy"><strong>Set the campaign direction</strong><small>Confirm the goal, audience and offer for new memberships.</small></span>
-        <span class="step-state">Open <b>↗</b></span>
-      </button>
-      <button class="onboarding-card" data-onboarding-step data-action="social" type="button">
-        <span class="step-number">02</span>
-        <span class="step-copy"><strong>Review your Instagram baseline</strong><small>See the audience, reach and content already working.</small></span>
-        <span class="step-state">Open <b>↗</b></span>
-      </button>
-      <button class="onboarding-card" data-onboarding-step type="button">
-        <span class="step-number">03</span>
-        <span class="step-copy"><strong>Confirm your first content session</strong><small>Reply in Messages once the next filming date is confirmed.</small></span>
-        <span class="step-state">Mark complete <b>○</b></span>
-      </button>
-    </section>
-
-    <section class="workspace">
-      <div class="workspace-main">
-        <div class="section-heading compact">
-          <div><p class="eyebrow">YOUR WORKSPACE</p><h2>Everything has a place.</h2></div>
-        </div>
-        <div class="destination-grid">
-          <article class="destination social">
-            <div class="destination-icon">IG</div>
-            <p>Social intelligence</p>
-            <h3>Social Command Center</h3>
-            <span>See what your audience responds to and turn signals into a next post.</span>
-            <button type="button" data-open="social">Open Social Center <b>→</b></button>
-          </article>
-          <article class="destination strategist">
-            <div class="destination-icon">✦</div>
-            <p>Campaign thinking</p>
-            <h3>JMN Strategist</h3>
-            <span>Keep campaign decisions and AI conversations in one focused space.</span>
-            <button type="button" data-open="strategist">Open Strategist <b>→</b></button>
-          </article>
-          <article class="destination deliverables">
-            <div class="destination-icon">↓</div>
-            <p>Creative delivery</p>
-            <h3>Media &amp; Deliverables</h3>
-            <span>Your approved photos, videos and project files are kept in the portal menu.</span>
-            <span class="portal-note">Open from <strong>Media &amp; Deliverables</strong> in the left menu.</span>
-          </article>
-        </div>
-      </div>
-
-      <aside class="support-card">
-        <p class="eyebrow">WORKING WITH JMN</p>
-        <h2>We keep the strategy visible.</h2>
-        <p>Use this portal to approve work, review progress and make decisions. When something needs your input, you will see it here.</p>
-        <div class="support-rule"></div>
-        <p class="support-small">Need to discuss an idea or change? Send it through <strong>Messages</strong> in the portal and we will pick it up from there.</p>
-      </aside>
-    </section>
-
-    <footer><span>JMN MEDIA</span><i></i><span>Strategy × Content × Growth</span></footer>
-  </main>
-</body>
-</html>
+<main class="shell" aria-label="Your JMN workspace">
+<section class="ticker" aria-label="Portal tips">
+<span class="ticker-label"><span aria-hidden="true">✦</span> NEXT MOVES</span>
+<div class="ticker-window">
+<a class="tip" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">Give your next campaign one clear objective. <strong>Plan with Strategist ↗</strong></a>
+<a class="tip" href="https://portal.jmnmedia.com/portal/dashboard/view/174976" target="_top" hidden>Explore your Instagram connection and available insights. <strong>Open Social Center ↗</strong></a>
+<a class="tip" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top" hidden>Bring an idea, refine your message, and save the conversation. <strong>Talk to Strategist ↗</strong></a>
+</div>
+<button id="pause-tips" type="button" aria-label="Pause rotating tips" aria-pressed="false">Pause</button>
+</section>
+<header class="section-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h2>What would you like to move forward?</h2></div><span class="heading-note">Strategy. Content. Connection.</span></header>
+<section class="destination-grid" aria-label="Explore your portal">
+<a class="destination featured" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">
+<div class="card-top"><span class="icon purple" aria-hidden="true">✦</span><span class="category">PLAN &amp; CREATE</span><span class="arrow" aria-hidden="true">↗</span></div>
+<h3>A clearer next move.</h3><p>Explore ideas, shape a campaign and draft captions with JMN Strategist.</p>
+<div class="card-bottom"><span>JMN Strategist</span><span aria-hidden="true">→</span></div>
+</a>
+<a class="destination" href="https://portal.jmnmedia.com/portal/dashboard/view/174976" target="_top">
+<div class="card-top"><span class="icon blue" aria-hidden="true">▥</span><span class="category">EXPLORE &amp; LEARN</span><span class="arrow" aria-hidden="true">↗</span></div>
+<h3>Know your audience.</h3><p>Manage your Instagram connection and explore the insights available for your account.</p>
+<div class="card-bottom"><span>Social Command Center</span><span aria-hidden="true">→</span></div>
+</a>
+<article class="destination">
+<div class="card-top"><span class="icon mint" aria-hidden="true">↓</span><span class="category">REVIEW &amp; DELIVER</span></div>
+<h3>Your creative work.</h3><p>Find shared project files and delivery links in the portal's Media &amp; Deliverables section.</p>
+<div class="card-bottom menu-hint"><span>Media &amp; Deliverables</span><span>In the portal menu</span></div>
+</article>
+</section>
+<section class="lower-grid" aria-label="Make the most of your workspace">
+<div class="focus-panel"><div class="focus-icon" aria-hidden="true">◎</div><div><p class="eyebrow">A USEFUL PLACE TO START</p><h3>One goal. A more focused conversation.</h3><p>Tell your strategist what you want to achieve, who you want to reach and what is getting in the way.</p><a href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">Start a conversation <span aria-hidden="true">→</span></a></div></div>
+<aside class="contact-panel"><p class="eyebrow">YOUR JMN TEAM</p><h3>Keep us in the loop.</h3><p>Have feedback, a question or a new idea? Use <strong>Messages</strong> in the portal menu to reach the team.</p><span class="contact-foot">Your business gives the work its direction.</span></aside>
+</section>
+</main>
+</body></html>
