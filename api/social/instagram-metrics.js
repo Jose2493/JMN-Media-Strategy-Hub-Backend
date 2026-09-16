@@ -1,14 +1,14 @@
 import { verifySocialSessionAuthorizationHeader } from '../../lib/socialSession.js';
 import { getInstagramAccountForMetrics } from '../../lib/socialAccounts.js';
 import { decryptSocialToken } from '../../lib/socialTokenCrypto.js';
-import { getInstagramProfileCounts, getInstagramDailyReach } from '../../lib/instagramClient.js';
+import { getInstagramProfileCounts, getInstagramDailyReach, getInstagramRecentMedia } from '../../lib/instagramClient.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Best-effort per-instance cache/coalescing, not durable analytics history.
 const cache = new Map();
 export function createMetricsHandler({ verifySession = verifySocialSessionAuthorizationHeader,
   getAccount = getInstagramAccountForMetrics, decrypt = decryptSocialToken,
-  getProfile = getInstagramProfileCounts, getReach = getInstagramDailyReach,
+  getProfile = getInstagramProfileCounts, getReach = getInstagramDailyReach, getMedia = getInstagramRecentMedia,
   now = Date.now, resultCache = cache } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
@@ -45,13 +45,14 @@ export function createMetricsHandler({ verifySession = verifySocialSessionAuthor
             account.scopes?.includes('instagram_business_manage_insights')
               ? getReach({ accessToken: token, userId: account.external_account_id, since, until })
               : Promise.reject({ code: 'MISSING_SCOPE' }),
+            getMedia({ accessToken: token, userId: account.external_account_id }),
           ]);
           if (results[0].status === 'rejected' && results[0].reason?.code === 'IDENTITY_MISMATCH') {
             throw new Error('IDENTITY_MISMATCH');
           }
           for (const [i, result] of results.entries()) if (result.status === 'rejected') {
             const code = result.reason?.code;
-            console.warn('[instagram-metrics]', { operation: i === 0 ? 'profile' : 'reach',
+            console.warn('[instagram-metrics]', { operation: ['profile', 'reach', 'media'][i],
               code: ['MISSING_SCOPE','IDENTITY_MISMATCH','PROVIDER_HTTP_ERROR','INVALID_RESPONSE','TIMEOUT','NETWORK_ERROR'].includes(code) ? code : 'FAILED',
               status: Number.isInteger(result.reason?.status) ? result.reason.status : null });
           }
@@ -59,6 +60,7 @@ export function createMetricsHandler({ verifySession = verifySocialSessionAuthor
             range: { since: new Date(since * 1000).toISOString(), until: new Date(until * 1000).toISOString() },
             profile: results[0].status === 'fulfilled' ? results[0].value : null,
             dailyReach: results[1].status === 'fulfilled' ? results[1].value : null,
+            recentMedia: results[2].status === 'fulfilled' ? results[2].value : null,
             partial: results.some(result => result.status === 'rejected') };
         })();
         entry = { expires: timestamp + 60000, pending };
