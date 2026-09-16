@@ -1,0 +1,24 @@
+name: Check strategist database contract
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/strategist-schema-check.yml]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read schema only (no customer records)
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          begin read only;
+          select table_name,column_name,data_type from information_schema.columns where table_schema='public' and table_name in ('conversations','messages','strategist_campaigns','strategist_threads') order by table_name,ordinal_position;
+          select table_name,privilege_type from information_schema.role_table_grants where grantee='service_role' and table_schema='public' and table_name in ('conversations','messages','strategist_campaigns','strategist_threads') order by table_name,privilege_type;
+          rollback;
+          SQL
