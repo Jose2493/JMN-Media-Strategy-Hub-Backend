@@ -714,7 +714,7 @@
     // Sin mensaje de éxito visible para el cliente -- pedido explícito. El
     // área de estado se deja vacía (salvo que ya tenga un error real
     // pendiente de la carga del manifest de países, que no se debe pisar).
-    if (!statusHasError) {
+    if (!statusHasError && !flagIsLoading) {
       setStatus('');
     }
     enableControls();
@@ -769,6 +769,7 @@
   }
 
   function enableControls() {
+    if (flagIsLoading) return;
     downloadBtn.disabled = false;
     downloadBtn.classList.add('enabled');
     artworkDownloadBtn.disabled = false;
@@ -792,7 +793,7 @@
 
   // --- Download PNG ---
   function downloadDesign(artworkOnly = false) {
-    if (!canvas) return;
+    if (!canvas || flagIsLoading) return;
     const garmentLayers = [shirtMockup, neckLabelObj].filter(Boolean);
     const visibility = garmentLayers.map(obj => obj.visible);
     const background = canvas.backgroundColor;
@@ -821,39 +822,63 @@
   downloadBtn.addEventListener('click', () => downloadDesign());
   artworkDownloadBtn.addEventListener('click', () => downloadDesign(true));
 
-  function loadFlag(countryCode, onDone) {
+  let flagLoadVersion = 0;
+  let flagIsLoading = false;
+
+  async function loadFlag(countryCode, onDone) {
+    const version = ++flagLoadVersion;
     const slot = TEMPLATE.fields.countryFlag.slot;
-
-    // Se carga como SVG vectorial (fabric.loadSVGFromURL), no como imagen
-    // rasterizada (fabric.Image.fromURL). Motivo: los SVG de flag-icons no
-    // garantizan tener atributos width/height explícitos, solo viewBox — si
-    // se cargan como <img>, el navegador puede rasterizarlos a un tamaño por
-    // defecto incorrecto (borroso al escalar). Cargándolos como vectores,
-    // Fabric lee las dimensiones reales del propio SVG y escala sin pérdida,
-    // sin importar el tamaño final del parche.
-    fabric.loadSVGFromURL(flagPath(countryCode), (objects, options) => {
-      const flagArt = fabric.util.groupSVGElements(objects, options);
-
-      // Escala uniforme (misma proporción en X e Y) para que quepa dentro
-      // del slot sin distorsionar el escudo/emblema — nunca "min" != "min"
-      // por separado en cada eje, siempre el mismo factor en ambos.
-      const scale = Math.min(slot.width / flagArt.width, slot.height / flagArt.height);
-
-      flagArt.set({
-        left: slot.x + slot.width / 2,
-        top: slot.y + slot.height / 2,
-        originX: 'center',
-        originY: 'center',
-        scaleX: scale,
-        scaleY: scale
+    let objectUrl;
+    flagIsLoading = true;
+    downloadBtn.disabled = artworkDownloadBtn.disabled = true;
+    setStatus('Loading flag...');
+    try {
+      const response = await fetch(flagPath(countryCode));
+      if (!response.ok) throw new Error('Flag unavailable');
+      const doc = new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+      if (doc.querySelector('parsererror')) throw new Error('Invalid flag');
+      const svg = doc.documentElement;
+      const viewBox = svg.getAttribute('viewBox').trim().split(/[\s,]+/).map(Number);
+      const ratio = viewBox[2] / viewBox[3];
+      if (!Number.isFinite(ratio) || ratio <= 0) throw new Error('Invalid flag dimensions');
+      // Let the browser render SVG markers, clipping and transforms faithfully.
+      // Explicit dimensions exceed the flag's native export slot by at least 4x.
+      const width = Math.ceil(Math.max(slot.width * 4, slot.height * 4 * ratio));
+      svg.setAttribute('width', String(width));
+      svg.setAttribute('height', String(Math.ceil(width / ratio)));
+      objectUrl = URL.createObjectURL(new Blob(
+        [new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }
+      ));
+      const image = await new Promise((resolve, reject) => {
+        const element = new Image();
+        element.onload = () => resolve(element);
+        element.onerror = () => reject(new Error('Flag render failed'));
+        element.src = objectUrl;
       });
-
+      // Freeze browser rendering into a high-resolution bitmap for Fabric/export.
+      const surface = document.createElement('canvas');
+      surface.width = image.naturalWidth;
+      surface.height = image.naturalHeight;
+      surface.getContext('2d').drawImage(image, 0, 0);
+      if (version !== flagLoadVersion) return;
+      const flagArt = new fabric.Image(surface);
+      fitObjectInSlot(flagArt, slot, surface.width, surface.height);
       if (countryFlagObj) canvas.remove(countryFlagObj);
       countryFlagObj = lockObject(flagArt);
       canvas.add(countryFlagObj);
       canvas.renderAll();
+      setStatus('');
+      flagIsLoading = false;
+      enableControls();
+    } catch (err) {
+      if (version === flagLoadVersion) {
+        setStatus('Flag could not load. Select the country again to retry.');
+        // Keep exports disabled so an old flag cannot be downloaded by mistake.
+      }
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       if (onDone) onDone();
-    });
+    }
   }
 
   // -----------------------------------------------------------------------
