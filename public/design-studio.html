@@ -435,6 +435,20 @@
     surface.width = img.width; surface.height = img.height;
     const ctx = surface.getContext('2d');
     ctx.drawImage(img.getElement(), 0, 0);
+    // New owner-supplied flat PNG: trim its transparent margins without altering artwork.
+    // Legacy strip remains supported until the private Storage asset is replaced.
+    const bounds = inkBounds(surface);
+    if (bounds.width / bounds.height > 11) {
+      const scale = spec.slot.width / bounds.width;
+      img.set({ cropX: bounds.left, cropY: bounds.top,
+        width: bounds.width, height: bounds.height,
+        left: spec.slot.x, top: spec.slot.y + spec.slot.height - bounds.height * scale,
+        originX: 'left', originY: 'top', scaleX: scale, scaleY: scale });
+      const rule = new fabric.Rect({ left: spec.slot.x, top: spec.slot.y,
+        width: spec.slot.width, height: 2, fill: TEMPLATE.fields.athleteName.fill,
+        strokeWidth: 0 });
+      return new fabric.Group([img, rule], { objectCaching: false });
+    }
     const pixels = ctx.getImageData(0, 0, surface.width, surface.height).data;
     let first = -1, last = -1;
     for (let y = 0; y < Math.floor(surface.height * 0.35); y++) {
