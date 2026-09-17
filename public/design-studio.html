@@ -198,7 +198,7 @@
 
     <button id="download-btn" class="download-btn" disabled>Download Mockup</button>
     <button id="artwork-download-btn" class="download-btn" disabled>Download Artwork</button>
-    <div style="font-size:12px;color:#8a8a95">Artwork: transparent PNG without the shirt or neck label.</div>
+    <div style="font-size:12px;color:#8a8a95">Print artwork: transparent PNG, 12 inches wide at 300 DPI (3600 px).</div>
     <div id="status">Cargando template...</div>
   </div>
 </div>
@@ -425,6 +425,49 @@
     const img = await loadImageAsPromise(spec.src);
     fitObjectInSlot(img, spec.slot, img.width, img.height);
     return img;
+  }
+
+  // Replace only the isolated horizontal rule in the authorized raster asset.
+  // Detect its rows rather than assuming an asset-specific crop coordinate.
+  async function loadStraightArtwork(spec) {
+    const img = await loadImageAsPromise(spec.src);
+    const surface = document.createElement('canvas');
+    surface.width = img.width; surface.height = img.height;
+    const ctx = surface.getContext('2d');
+    ctx.drawImage(img.getElement(), 0, 0);
+    const pixels = ctx.getImageData(0, 0, surface.width, surface.height).data;
+    let first = -1, last = -1;
+    for (let y = 0; y < Math.floor(surface.height * 0.35); y++) {
+      let count = 0;
+      for (let x = 0; x < surface.width; x++) {
+        if (pixels[(y * surface.width + x) * 4 + 3] > 64) count++;
+      }
+      if (count > surface.width * 0.6) {
+        if (first < 0) first = y;
+        last = y;
+      }
+    }
+    if (first < 0) throw new Error('Could not isolate artwork rule');
+    // Find the transparent separator beneath the complete curved rule.
+    let cut = last + 1;
+    for (; cut < surface.height * 0.45; cut++) {
+      let occupied = false;
+      for (let x = 0; x < surface.width; x++) {
+        if (pixels[(cut * surface.width + x) * 4 + 3] > 32) { occupied = true; break; }
+      }
+      if (!occupied) break;
+    }
+    if (cut >= surface.height * 0.45) throw new Error('Artwork rule is not isolated');
+    const scale = Math.min(spec.slot.width / img.width, spec.slot.height / img.height);
+    const left = spec.slot.x + (spec.slot.width - img.width * scale) / 2;
+    const top = spec.slot.y + (spec.slot.height - img.height * scale) / 2;
+    img.set({ cropY: cut, height: img.height - cut, left, top: top + cut * scale,
+      originX: 'left', originY: 'top', scaleX: scale, scaleY: scale });
+    // Vector rectangle remains straight at any export resolution.
+    const rule = new fabric.Rect({ left, top: top + first * scale,
+      width: surface.width * scale, height: 2 * scale,
+      fill: TEMPLATE.fields.athleteName.fill, strokeWidth: 0 });
+    return new fabric.Group([img, rule], { objectCaching: false });
   }
 
   function lockObject(obj) {
@@ -707,7 +750,7 @@
     canvas.add(athleteNameObj);
 
     // --- Línea + "SEMPER CROSSFIT" + caja "USA" (artwork oficial, no reconstruido) ---
-    semperCrossfitUsaObj = lockObject(await loadFixedArtwork(DESIGN_GROUP_SPEC.semperCrossfitArtwork));
+    semperCrossfitUsaObj = lockObject(await loadStraightArtwork(DESIGN_GROUP_SPEC.semperCrossfitArtwork));
     canvas.add(semperCrossfitUsaObj);
 
     canvas.renderAll();
@@ -717,6 +760,7 @@
     if (!statusHasError && !flagIsLoading) {
       setStatus('');
     }
+    templateReady = true;
     enableControls();
 
     // --- Fit to View ---
@@ -768,8 +812,9 @@
     })();
   }
 
+  let templateReady = false;
   function enableControls() {
-    if (flagIsLoading) return;
+    if (flagIsLoading || !templateReady) return;
     downloadBtn.disabled = false;
     downloadBtn.classList.add('enabled');
     artworkDownloadBtn.disabled = false;
@@ -791,9 +836,55 @@
     loadFlag(code);
   });
 
+  function inkBounds(surface) {
+    const { width, height } = surface;
+    const data = surface.getContext('2d').getImageData(0, 0, width, height).data;
+    let left = width, top = height, right = -1, bottom = -1;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] > 0) {
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      }
+    }
+    if (right < left) throw new Error('Empty artwork');
+    return { left, top, width: right - left + 1, height: bottom - top + 1 };
+  }
+
+  // PNG pHYs uses integer pixels/metre. Replace any existing density chunk.
+  function pngWithPrintDensity(dataURL, dpi) {
+    const bytes = Uint8Array.from(atob(dataURL.split(',')[1]), c => c.charCodeAt(0));
+    const view = new DataView(bytes.buffer);
+    const chunk = new Uint8Array(21);
+    const cv = new DataView(chunk.buffer);
+    cv.setUint32(0, 9);
+    chunk.set([112, 72, 89, 115], 4);
+    cv.setUint32(8, Math.round(dpi / 0.0254));
+    cv.setUint32(12, Math.round(dpi / 0.0254));
+    chunk[16] = 1;
+    let crc = 0xffffffff;
+    for (const byte of chunk.subarray(4, 17)) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    cv.setUint32(17, (crc ^ 0xffffffff) >>> 0);
+    const parts = [bytes.subarray(0, 8)];
+    for (let offset = 8; offset < bytes.length;) {
+      const length = view.getUint32(offset) + 12;
+      const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+      if (type !== 'pHYs') parts.push(bytes.subarray(offset, offset + length));
+      if (type === 'IHDR') parts.push(chunk);
+      offset += length;
+    }
+    let binary = '';
+    for (const part of parts) for (let i = 0; i < part.length; i += 8192) {
+      binary += String.fromCharCode(...part.subarray(i, i + 8192));
+    }
+    return 'data:image/png;base64,' + btoa(binary);
+  }
+
   // --- Download PNG ---
   function downloadDesign(artworkOnly = false) {
-    if (!canvas || flagIsLoading) return;
+    if (!canvas || flagIsLoading || !templateReady) return;
     const garmentLayers = [shirtMockup, neckLabelObj].filter(Boolean);
     const visibility = garmentLayers.map(obj => obj.visible);
     const background = canvas.backgroundColor;
@@ -803,7 +894,16 @@
         garmentLayers.forEach(obj => obj.set('visible', false));
         canvas.backgroundColor = '';
       }
-      dataURL = canvas.toDataURL({ format: 'png', enableRetinaScaling: false });
+      if (artworkOnly) {
+        const native = canvas.toCanvasElement(1);
+        const bounds = inkBounds(native);
+        dataURL = canvas.toDataURL({ format: 'png', enableRetinaScaling: false,
+          left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height,
+          multiplier: 3600 / bounds.width });
+        dataURL = pngWithPrintDensity(dataURL, 300);
+      } else {
+        dataURL = canvas.toDataURL({ format: 'png', enableRetinaScaling: false });
+      }
     } catch (err) {
       setStatus('Export failed. Please try again.');
       return;
@@ -814,7 +914,7 @@
     }
     const link = document.createElement('a');
     link.href = dataURL;
-    link.download = TEMPLATE.id + (artworkOnly ? '-artwork' : '-mockup') + '.png';
+    link.download = TEMPLATE.id + (artworkOnly ? '-artwork-12in-300dpi' : '-mockup') + '.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -842,8 +942,8 @@
       const ratio = viewBox[2] / viewBox[3];
       if (!Number.isFinite(ratio) || ratio <= 0) throw new Error('Invalid flag dimensions');
       // Let the browser render SVG markers, clipping and transforms faithfully.
-      // Explicit dimensions exceed the flag's native export slot by at least 4x.
-      const width = Math.ceil(Math.max(slot.width * 4, slot.height * 4 * ratio));
+      // Explicit dimensions exceed the flag's native export slot by at least 8x for the 3600px print export.
+      const width = Math.ceil(Math.max(slot.width * 8, slot.height * 8 * ratio));
       svg.setAttribute('width', String(width));
       svg.setAttribute('height', String(Math.ceil(width / ratio)));
       objectUrl = URL.createObjectURL(new Blob(
@@ -981,7 +1081,11 @@
     NECK_LABEL_SPEC.src = assets.neckLabel;
     accessGateEl.hidden = true;
     mainEl.hidden = false;
-    init();
+    init().catch(() => {
+      templateReady = false;
+      downloadBtn.disabled = artworkDownloadBtn.disabled = true;
+      setStatus('Template could not load. Please reopen Design Studio.');
+    });
   }
 
   authenticateAndStart();
@@ -989,3 +1093,4 @@
 
 </body>
 </html>
+
