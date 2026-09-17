@@ -714,7 +714,7 @@
     // Sin mensaje de éxito visible para el cliente -- pedido explícito. El
     // área de estado se deja vacía (salvo que ya tenga un error real
     // pendiente de la carga del manifest de países, que no se debe pisar).
-    if (!statusHasError) {
+    if (!statusHasError && !flagIsLoading) {
       setStatus('');
     }
     enableControls();
