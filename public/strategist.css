@@ -3,3 +3,41 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 
 .msg.revealing::after{content:'';display:inline-block;width:6px;height:1em;background:#c9b3ff;margin-left:5px;vertical-align:-.1em;border-radius:2px;animation:writing-cursor .8s ease-in-out infinite}.reveal-skip{align-self:flex-start;padding:5px 9px;font-size:10px;color:#c6b5e1;background:transparent;border-color:#514463}@keyframes writing-cursor{50%{opacity:.2}}@media(prefers-reduced-motion:reduce){.msg.revealing::after{animation:none}}
+
+/* Mobile conversation surface: navigation is moved into a native modal drawer. */
+#mobile-menu{display:none}
+#navigation-drawer{padding:12px 0 0;margin:0;height:100%;max-height:100%;width:min(340px,88vw);max-width:88vw;border-radius:0 18px 18px 0;overflow:hidden;background:#202030}
+#navigation-drawer[open]{display:flex;flex-direction:column}
+#navigation-drawer .sidebar{flex:1;border:0}
+#close-navigation{align-self:flex-end;margin:0 14px;min-height:44px}
+@media(max-width:768px){
+ body{overflow:hidden}
+ #workspace{display:flex;height:100vh;height:100dvh;min-height:0;width:100%}
+ .chat-panel{flex:1;width:100%;overflow:hidden}
+ #mobile-menu{display:block;flex:none;min-width:44px;min-height:44px;font-size:21px;background:transparent;border:0}
+ .chat-panel header{flex:none;padding:8px 12px;gap:10px}
+ .chat-panel header>div{min-width:0}
+ h1{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .eyebrow{font-size:10px;margin-bottom:4px}
+ .ai-badge{display:none}
+ #objective,#context{flex:none;max-height:72px;overflow:auto;padding:8px 16px;font-size:12px}
+ #status{flex:none;margin:8px 16px 0}
+ #messages{padding:18px 16px;gap:20px;overscroll-behavior:contain}
+ .msg{font-size:16px;line-height:1.65;max-width:100%}
+ .msg.assistant{padding:0;border:0;background:transparent}
+ .msg.user{max-width:90%;padding:11px 15px;border-radius:18px}
+ #welcome{flex:1;min-height:0;overflow:auto;width:100%;max-width:540px;margin:0 auto;padding:24px 20px}
+ #welcome h2{font-size:25px;line-height:1.2}
+ #welcome p{font-size:14px}
+ #welcome .spark{width:40px;height:40px;font-size:22px;margin-bottom:16px}
+ .prompts{margin:20px 0 0;gap:8px}
+ .prompts button{font-size:14px;min-height:48px}
+ #composer{flex:none;flex-wrap:nowrap;align-items:flex-end;margin:8px 12px 0;padding:6px;border-radius:22px;gap:6px}
+ #input-box{flex:1;flex-basis:auto;font-size:16px;min-height:44px;max-height:100px;padding:10px;line-height:1.4}
+ #send-btn{flex:none;min-width:52px;min-height:44px;border-radius:16px;margin:0}
+ .composer-note{flex:none;font-size:10px;text-align:center;margin:6px 16px max(8px,env(safe-area-inset-bottom));line-height:1.35}
+ #navigation-drawer .sidebar{padding:16px}
+ #navigation-drawer nav button,#navigation-drawer .primary{font-size:15px;min-height:44px}
+ #navigation-drawer .sidebar-heading{font-size:11px}
+ dialog input,dialog textarea,dialog select{font-size:16px}
+}
