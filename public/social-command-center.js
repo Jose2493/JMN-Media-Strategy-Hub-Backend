@@ -202,7 +202,7 @@
       if (account.status === 'active') {
         const workspace = document.createElement('div');
         block.append(workspace);
-        planViews.push(window.JmnActionPlan.mount(workspace, {
+        planViews.push({accountId:account.id,...window.JmnActionPlan.mount(workspace, {
           request: async command => {
             if(!sessionToken)throw new Error('Reopen Social Center from your portal.');
             const response = await fetch(command ? '/api/strategist' : '/api/strategist?action=plan&account='+encodeURIComponent(account.id), {
@@ -218,7 +218,7 @@
           },
           openChat:(context,trigger)=>openStrategist(context,trigger),
           getMetrics:()=>accountMetrics.get(account.id)
-        }));
+        })});
         const panel = document.createElement('section');
         panel.className = 'metrics-panel';
         const button = document.createElement('button');
@@ -464,6 +464,7 @@
       if (!sessionToken || !content.isConnected) return;
       if (data.accountId !== accountId) throw new Error('METRICS_FAILED');
       accountMetrics.set(accountId,data);
+      planViews.find(view=>view.accountId===accountId)?.refresh();
       renderMetrics(data, content);
     } catch (error) {
       if (sessionToken && content.isConnected) content.replaceChildren(metricNode('p', error.message === 'RECONNECT' ? 'Reconnect Instagram to load metrics.' : 'Unable to load metrics. Try refreshing metrics.', 'metrics-message'));

@@ -1,4 +1,5 @@
 /* The action is the focal point; analytics remain available on demand. */
+.result-counts{display:grid;gap:5px;margin:12px 0;font-size:12px;color:#ded4ed}
 :root{--action-accent:#cab8ff;--action-line:#4c4568}
 html,body{overflow-wrap:anywhere}
 .shell{max-width:1280px;margin:auto;padding:32px clamp(16px,4vw,48px) 40px}

@@ -31,7 +31,7 @@
    f.append(heading,el('p',description,'form-description'));const fields=el('div','','plan-fields');f.append(fields);
    const error=el('p','','form-error');error.setAttribute('role','alert');f.append(error);
    const actions=el('div','','plan-actions');const cancel=button('Cancel',()=>d.close());actions.append(cancel);f.append(actions);
-   d.addEventListener('cancel',e=>{if(busy)e.preventDefault();});d.addEventListener('close',()=>{d.remove();if(dialog===d)dialog=null;trigger?.focus();},{once:true});
+   d.addEventListener('cancel',e=>{if(busy)e.preventDefault();});d.addEventListener('close',()=>{d.remove();if(dialog===d)dialog=null;(trigger?.isConnected?trigger:root.querySelector('button'))?.focus();},{once:true});
    d.append(f);document.body.append(d);d.showModal();
    return {d,f,fields,actions};
   }
@@ -93,9 +93,14 @@
     else {const pub=button('I published it',()=>published(pub));actions.append(pub);}
    }else if(m.status==='published'){
     const p=m.post.post;const linked=el('div','','linked-post');linked.append(el('span','LINKED PUBLICATION','section-kicker'),el('p',p.caption?.slice(0,180)||'Untitled post'),el('small',`Linked ${date(m.linkedAt)} · Give your experiment time before drawing conclusions.`));
+    const latestData=getMetrics(),latest=latestData?.recentMedia?.find(post=>post.id===p.id);
+    const counts=el('div','','result-counts');const n=value=>Number.isSafeInteger(value)&&value>=0?value.toLocaleString():'—';
+    counts.append(el('span',`When linked · ${n(p.likes)} likes / ${n(p.comments)} comments`));
+    counts.append(el('span',latest?`Latest · ${n(latest.likes)} likes / ${n(latest.comments)} comments · ${date(latestData.fetchedAt)}`:'Latest counts unavailable. Use Update overview to check again.'));
+    linked.append(counts,el('small','Cumulative interactions, not verified inquiries or sales.'));
     if(p.permalink){const a=el('a','View on Instagram ↗','post-link');a.href=p.permalink;a.target='_blank';a.rel='noopener noreferrer';linked.append(a);}card.append(linked);
     const r=button('Record what I learned',()=>review(r),true);actions.append(r);
-    const chat=button('Discuss the results ↗',()=>openChat({conversationId:m.conversationId,draft:`Help me review this action. My goal: ${s.goal.objective}. Selected post: ${p.caption||p.id}. At ${m.post.capturedAt}, the saved counts were ${p.likes??'unknown'} likes and ${p.comments??'unknown'} comments. These are cumulative counts, not sales or post reach. Ask me for the observed business outcome before drawing conclusions.`},chat));actions.append(chat);
+    const chat=button('Discuss the results ↗',()=>openChat({conversationId:m.conversationId,draft:`Help me review this action. My goal: ${s.goal.objective}. Selected post: ${p.caption||p.id}. At ${m.post.capturedAt}, the saved counts were ${p.likes??'unknown'} likes and ${p.comments??'unknown'} comments. ${latest?`At ${latestData.fetchedAt}, the latest counts were ${latest.likes??'unknown'} likes and ${latest.comments??'unknown'} comments.`:'Latest counts are unavailable.'} These are cumulative counts, not sales or post reach. Ask me for the observed business outcome before drawing conclusions.`},chat));actions.append(chat);
    }else{
     card.append(el('div','YOUR LEARNING','section-kicker'),el('p',m.review.note,'saved-note'),el('p',`Recorded by your team · ${date(m.review.recordedAt)}. Business outcomes are self-reported.`,'move-footnote'));
     actions.append(button('Start the next experiment →',()=>save('next'),true));
@@ -108,6 +113,6 @@
    if(s.history.length){const history=el('details','','plan-history');history.append(el('summary',`Your previous actions · ${s.history.length}`));for(const item of [...s.history].reverse()){const row=el('article');row.append(el('h3',item.title),el('p',item.review?.note||item.archiveReason),el('small',date(item.archivedAt)));if(item.conversationId){const b=button('Open preparation ↗',()=>openChat({conversationId:item.conversationId},b));row.append(b);}history.append(row);}view.append(history);}
   }
   load();
-  return {close:()=>dialog?.close()};
+  return {close:()=>dialog?.close(),refresh:()=>{if(plan&&!busy)draw();}};
  }};
 })();
