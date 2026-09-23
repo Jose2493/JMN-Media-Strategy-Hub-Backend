@@ -22,6 +22,7 @@ const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 let finishReveal=null;
 let token=null,bootstrap=null,expiryTimer=null,renewTimer=null,busy=false,initialized=false;
 let campaignId=null,conversationId=null,workspace={campaigns:[],threads:[]},pendingPost=null,nextCursor=null;
+let pendingConversation=null,pendingDraft='',draftOnlyIfEmpty=false;
 const node=(tag,text,cls)=>{const el=document.createElement(tag);el.textContent=text;if(cls)el.className=cls;return el;};
 const status=text=>{$('status').textContent=text;$('status').hidden=!text;};
 function setBusy(value){busy=value;document.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=value || !token);}
@@ -52,7 +53,9 @@ function heading(metadata){
  $('campaign-name').textContent=campaign?.name || 'GENERAL';$('thread-title').textContent=metadata?.title || "Let's find your next move.";
  $('objective').textContent=campaign?.objective || '';$('objective').hidden=!campaign?.objective;
  $('context').replaceChildren();const snap=metadata?.social_context;$('context').hidden=!snap;
- if(snap){$('context').append(node('strong','Discussing an Instagram post'),node('span',(snap.post.caption || 'Untitled post').slice(0,220)),document.createElement('br'),node('span','Snapshot: '+new Date(snap.capturedAt).toLocaleString()+' · Caption and metrics only; media has not been analyzed.'));
+ if(snap?.kind==='social_action'){
+  $('context').append(node('strong','Your Social Center action'),node('span',snap.action.title),node('span','Goal: '+snap.goal.objective));
+ }else if(snap?.post){$('context').append(node('strong','Discussing an Instagram post'),node('span',(snap.post.caption || 'Untitled post').slice(0,220)),document.createElement('br'),node('span','Snapshot: '+new Date(snap.capturedAt).toLocaleString()+' · Caption and metrics only; media has not been analyzed.'));
   if(snap.post.permalink){const u=new URL(snap.post.permalink);if(u.protocol==='https:'&&['www.instagram.com','instagram.com'].includes(u.hostname)){const a=node('a','View post ↗');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';$('context').append(a);}}
  }
 }
@@ -133,7 +136,7 @@ $('post-form').onsubmit=async e=>{
 };
 async function start(){
  $('gate').hidden=true;$('workspace').hidden=false;setBusy(true);
- try{await refreshList();showWelcome();if(pendingPost){$('post-campaign').value=campaignId || '';$('post-dialog').showModal();}}
+ try{await refreshList();showWelcome();if(pendingConversation){await readThread(pendingConversation);if(pendingDraft&&(!draftOnlyIfEmpty||!$('messages').querySelector('.msg'))){$('input-box').value=pendingDraft;status('Your context is saved. Send the draft below, or write your own.');}}else if(pendingPost){$('post-campaign').value=campaignId || '';$('post-dialog').showModal();}}
  catch(e){status(e.message);}finally{setBusy(false);}
 }
 async function exchange(){
@@ -145,6 +148,9 @@ if(embedded && window.parent!==window){
  window.addEventListener('message',event=>{
   if(initialized||event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='jmn:strategist-init')return;
   if(!installToken(event.data.sessionToken))return;initialized=true;
+  if(typeof event.data.conversationId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event.data.conversationId))pendingConversation=event.data.conversationId;
+  if(typeof event.data.draft==='string'&&event.data.draft.length<=6000)pendingDraft=event.data.draft;
+  draftOnlyIfEmpty=event.data.draftOnlyIfEmpty===true;
   const post=event.data.post;if(post && typeof post.accountId==='string' && typeof post.mediaId==='string')pendingPost={accountId:post.accountId,mediaId:post.mediaId};start();
  });
  window.parent.postMessage({type:'jmn:strategist-ready'},location.origin);

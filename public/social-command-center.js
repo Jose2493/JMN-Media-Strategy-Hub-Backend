@@ -18,6 +18,8 @@
   const feedbackEl = document.getElementById('feedback');
 
   let strategistDialog = null;
+  const accountMetrics = new Map();
+  let planViews = [];
   let sessionToken = null;
   let sessionExpiryTimer = null;
   let authPopup = null;
@@ -36,6 +38,8 @@
 
   function denyAccess() {
     strategistDialog?.close();
+    planViews.forEach(view => view.close());
+    accountMetrics.clear();
     sessionToken = null;
     if (sessionExpiryTimer) {
       clearTimeout(sessionExpiryTimer);
@@ -151,6 +155,9 @@
   }
 
   function renderAccounts(accounts) {
+    planViews.forEach(view => view.close());
+    planViews = [];
+    accountMetrics.clear();
     accountsEl.replaceChildren();
     const connected = accounts.some(account => account?.status === 'active');
     emptyStateEl.hidden = accounts.length > 0;
@@ -193,6 +200,25 @@
       block.append(row);
       accountsEl.append(block);
       if (account.status === 'active') {
+        const workspace = document.createElement('div');
+        block.append(workspace);
+        planViews.push({accountId:account.id,...window.JmnActionPlan.mount(workspace, {
+          request: async command => {
+            if(!sessionToken)throw new Error('Reopen Social Center from your portal.');
+            const response = await fetch(command ? '/api/strategist' : '/api/strategist?action=plan&account='+encodeURIComponent(account.id), {
+              method:command?'POST':'GET',cache:'no-store',
+              headers:{Authorization:`Bearer ${sessionToken}`,...(command?{'Content-Type':'application/json'}:{})},
+              body:command?JSON.stringify({action:'plan',accountId:account.id,...command}):undefined
+            });
+            if(response.status===401){denyAccess();throw new Error('Your session expired. Reopen Social Center from your portal.');}
+            const data=await response.json();
+            if(!response.ok)throw Object.assign(new Error(data.error||'Unable to load your action plan. Please retry.'),{status:response.status});
+            if(!sessionToken)throw new Error('Your session expired. Reopen Social Center from your portal.');
+            return data;
+          },
+          openChat:(context,trigger)=>openStrategist(context,trigger),
+          getMetrics:()=>accountMetrics.get(account.id)
+        })});
         const panel = document.createElement('section');
         panel.className = 'metrics-panel';
         const button = document.createElement('button');
@@ -224,6 +250,10 @@
   }
 
   function discussPost(accountId, mediaId, trigger) {
+    openStrategist({post:{accountId,mediaId}},trigger);
+  }
+
+  function openStrategist(context, trigger) {
     if (!sessionToken) return;
     strategistDialog?.close();
     const dialog = document.createElement('dialog');
@@ -241,7 +271,7 @@
     const ready = event => {
       if (delivered || !sessionToken || event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.type !== 'jmn:strategist-ready') return;
       delivered = true;
-      frame.contentWindow.postMessage({type:'jmn:strategist-init',sessionToken,post:{accountId,mediaId}},location.origin);
+      frame.contentWindow.postMessage({type:'jmn:strategist-init',sessionToken,...context},location.origin);
     };
     window.addEventListener('message',ready);
     dialog.addEventListener('close',()=>{window.removeEventListener('message',ready);dialog.remove();if(strategistDialog===dialog)strategistDialog=null;trigger?.focus();},{once:true});
@@ -252,7 +282,7 @@
     const section = metricNode('section', '', 'content-section');
     const heading = metricNode('div', '', 'section-heading');
     const title = metricNode('div', '');
-    title.append(metricNode('div', 'CONTENT INTELLIGENCE', 'section-kicker'), metricNode('h3', 'Make your next post count.'), metricNode('p', 'Explore your latest content and turn signals into a next step.', 'chart-subtitle'));
+    title.append(metricNode('div', 'YOUR PUBLICATIONS', 'section-kicker'), metricNode('h3', 'The work you put out.'), metricNode('p', 'Explore a post or bring it into a conversation with Strategist.', 'chart-subtitle'));
     heading.append(title); section.append(heading);
     const posts = Array.isArray(data.recentMedia) ? data.recentMedia : [];
     const valid = n => Number.isSafeInteger(n) && n >= 0;
@@ -268,7 +298,7 @@
     }
     const layout = metricNode('div', '', 'content-analysis');
     const comparison = metricNode('section', '', 'chart-card');
-    comparison.append(metricNode('h3', 'Which posts start a conversation?'), metricNode('p', 'Top 5 by likes + comments · among the posts loaded below', 'chart-subtitle'));
+    comparison.append(metricNode('h3', 'Recorded interactions'), metricNode('p', 'Top 5 by cumulative likes + comments · among loaded posts', 'chart-subtitle'));
     const legend = metricNode('div', '', 'content-legend'); legend.append(metricNode('span','● Likes','likes-key'),metricNode('span','● Comments','comments-key')); comparison.append(legend);
     const ceiling = Math.max(1, ...ranked.map(p => total(p)));
     for (const p of ranked.slice(0,5)) {
@@ -282,22 +312,10 @@
     }
     if (!ranked.length) comparison.append(metricNode('p','Interaction counts are not available for these posts.','metrics-note'));
     comparison.append(metricNode('p','Counts are cumulative per post, not a 7-day total. Older posts have had more time to collect interactions.','metrics-note'));
-    const advice = metricNode('aside','','recommendations');
-    advice.append(metricNode('div','✦ YOUR NEXT MOVES','section-kicker'),metricNode('h3','Small signals. Useful direction.'));
-    const addAdvice = (n, title, copy) => {
-      const item = metricNode('div','','recommendation'); item.append(metricNode('span',n,'recommendation-number'));
-      const body = metricNode('div',''); body.append(metricNode('h4',title),metricNode('p',copy)); item.append(body); advice.append(item);
-    };
-    const top = ranked[0];
-    if (top && total(top) > 0) addAdvice('01','Revisit your strongest idea', `Your ${type(top).toLowerCase()} from ${date(top)} has ${number(total(top))} likes + comments, the highest count in this sample. Try a follow-up with a fresh angle.`);
-    else addAdvice('01','Give people a reason to respond','Try a post that answers one specific customer question, then invite a reply. Compare its results here after publishing.');
-    const formats = [...new Set(posts.map(p => type(p)))];
-    addAdvice('02',formats.length === 1 ? 'Test another format' : 'Compare the message, too', formats.length === 1 ? `All ${posts.length} loaded posts are ${formats[0].toLowerCase()} content. Try the same useful idea in another format and compare the response.` : `This sample includes ${formats.join(', ').toLowerCase()}. Compare similar topics before attributing differences to the format.`);
-    addAdvice('03','Turn comments into your next brief','Open a post below, read the questions people ask, and use one as the starting point for your next post.');
-    advice.append(metricNode('p',`Suggestions based on ${posts.length} loaded posts. These are experiments to try, not performance forecasts.`,'metrics-note'));
-    layout.append(comparison,advice); section.append(layout);
+    const analysis=metricNode('details','','analysis-disclosure');
+    analysis.append(metricNode('summary','Compare post interactions'),comparison);section.append(analysis);
     const galleryHead = metricNode('div','','section-heading gallery-heading');
-    const galleryTitle = metricNode('div',''); galleryTitle.append(metricNode('h3','Your content, at a glance'),metricNode('p',`${posts.length} recent posts · thumbnail previews from Instagram`,'chart-subtitle'));
+    const galleryTitle = metricNode('div',''); galleryTitle.append(metricNode('p',`${posts.length} posts returned by Instagram`,'chart-subtitle'));
     const sort = metricNode('select','','content-sort'); sort.setAttribute('aria-label','Sort recent posts');
     for(const [value,text] of [['recent','Newest first'],['top','Most interactions']]) { const option = metricNode('option',text);option.value=value;sort.append(option); }
     galleryHead.append(galleryTitle,sort);section.append(galleryHead);
@@ -307,7 +325,7 @@
     function draw() {
       gallery.replaceChildren();
       const ordered = [...posts].sort(sort.value === 'top' ? (a,b) => (total(b) ?? -1) - (total(a) ?? -1) : (a,b) => (Date.parse(b.timestamp)||0) - (Date.parse(a.timestamp)||0));
-      for (const p of ordered.slice(0, expanded ? 12 : 6)) {
+      for (const p of ordered.slice(0, expanded ? 12 : 3)) {
         const card = metricNode('article','','post-card');
         const preview = metricNode('div','','post-preview');
         const placeholder = metricNode('span',type(p),'post-placeholder');preview.append(placeholder);
@@ -323,7 +341,7 @@
         discuss.addEventListener('click', () => discussPost(data.accountId, p.id, discuss));body.append(discuss);
         card.append(preview,body);gallery.append(card);
       }
-      more.hidden=posts.length<=6;more.textContent=expanded?'Show fewer posts':`Show all ${posts.length} posts`;more.setAttribute('aria-expanded',String(expanded));
+      more.hidden=posts.length<=3;more.textContent=expanded?'Show fewer posts':`Show all ${posts.length} posts`;more.setAttribute('aria-expanded',String(expanded));
     }
     sort.addEventListener('change',draw);more.addEventListener('click',()=>{expanded=!expanded;draw();});draw();section.append(gallery,more);content.append(section);
   }
@@ -407,21 +425,8 @@
       empty.append(metricNode('strong', 'Your story is still taking shape.'), metricNode('span', data.dailyReach === null ? 'Reach is unavailable right now. Try updating later.' : 'Instagram has not returned reach for this period yet.'));
       chart.append(empty);
     }
-    const insight = metricNode('aside', '', 'insight-card');
-    const icon = metricNode('div', '✦', 'insight-icon'); icon.setAttribute('aria-hidden', 'true');
-    insight.append(icon, metricNode('div', 'At a glance', 'insight-eyebrow'));
-    if (best && peak > 0) {
-      insight.append(metricNode('h3', `${shortDate(best.endTime)} led the week.`));
-      const stat = metricNode('div', '', 'insight-stat');
-      stat.append(metricNode('strong', number(peak)), metricNode('span', peak === 1 ? 'account reached' : 'accounts reached')); insight.append(stat);
-      insight.append(metricNode('p', 'Your highest daily reach in the available data. Review what you shared around this period to help plan your next post.', 'insight-copy'));
-    } else if (best) {
-      insight.append(metricNode('h3', 'A quiet week.'), metricNode('p', 'Instagram reported zero reach for the available days. A useful post for your audience is a practical next step.', 'insight-copy'));
-    } else {
-      insight.append(metricNode('h3', 'Ready for the next signal.'), metricNode('p', 'Your account is connected. This snapshot will take shape as Instagram makes reach data available.', 'insight-copy'));
-    }
-    insight.append(metricNode('div', `${available.length} of 7 daily values available · Based on Instagram data`, 'insight-tag'));
-    layout.append(chart, insight); content.append(layout);
+    const analysis=metricNode('details','','analysis-disclosure');
+    analysis.append(metricNode('summary','View reach analysis'),chart);content.append(analysis);
     if (data.partial) content.append(metricNode('p', 'Some data is temporarily unavailable. Your connection is still saved.', 'metrics-warning'));
     renderContent(data, content);
     const footer = metricNode('div', '', 'overview-footer');
@@ -458,6 +463,8 @@
       const data = await response.json();
       if (!sessionToken || !content.isConnected) return;
       if (data.accountId !== accountId) throw new Error('METRICS_FAILED');
+      accountMetrics.set(accountId,data);
+      planViews.find(view=>view.accountId===accountId)?.refresh();
       renderMetrics(data, content);
     } catch (error) {
       if (sessionToken && content.isConnected) content.replaceChildren(metricNode('p', error.message === 'RECONNECT' ? 'Reconnect Instagram to load metrics.' : 'Unable to load metrics. Try refreshing metrics.', 'metrics-message'));

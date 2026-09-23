@@ -1,0 +1,27 @@
+name: Add Social Center action plans
+on:
+  push:
+    branches: [main]
+    paths: [supabase/migrations/20260923060000_social_action_plans.sql]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: social-action-plans-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply additive action-plan schema
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260923060000_social_action_plans.sql
+      - name: Verify isolation and atomic save without retaining test data
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/social_action_plans.sql
