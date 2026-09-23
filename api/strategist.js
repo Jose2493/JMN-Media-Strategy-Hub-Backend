@@ -1,6 +1,7 @@
 import { verifySocialSessionAuthorizationHeader } from '../lib/socialSession.js';
 import { strategistStore, UUID, textField, httpError } from '../lib/strategistStore.js';
 import metricsHandler from './social/instagram-metrics.js';
+import { socialActionPlans } from '../lib/socialActionPlans.js';
 
 async function loadSnapshot(authorization,accountId,mediaId) {
   let status=200, data;
@@ -12,18 +13,20 @@ async function loadSnapshot(authorization,accountId,mediaId) {
   // Only trusted server-fetched fields. No client-supplied metrics or arbitrary URLs.
   return {capturedAt:data.fetchedAt,accountId,post:{id:post.id,caption:post.caption,type:post.type,permalink:post.permalink,timestamp:post.timestamp,likes:post.likes,comments:post.comments},profile:data.profile,dailyReach:data.dailyReach,range:data.range};
 }
-export function createStrategistHandler({verify=verifySocialSessionAuthorizationHeader,store=strategistStore,snapshot=loadSnapshot}={}) {
+export function createStrategistHandler({verify=verifySocialSessionAuthorizationHeader,store=strategistStore,snapshot=loadSnapshot,plans=socialActionPlans}={}) {
  return async (req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
   let session;
   try{session=verify(req.headers.authorization || '');}catch{return res.status(401).json({error:'Invalid or expired session'});}
   try{
     if(req.method==='GET') {
+      if(req.query?.action==='plan')return res.status(200).json(await plans({session,accountId:req.query.account}));
       const id=req.query?.conversation;
       return res.status(200).json(id ? await store.history(session.companyId,id,req.query?.before) : await store.list(session.companyId));
     }
     if(req.method!=='POST') {res.setHeader('Allow','GET, POST');return res.status(405).json({error:'Method not allowed'});}
     const body=req.body || {};
+    if(body.action==='plan')return res.status(200).json(await plans({session,accountId:body.accountId,body,snapshot,authorization:req.headers.authorization}));
     if(body.action==='campaign') return res.status(201).json({campaign:await store.createCampaign(session.companyId,session.contactId,textField(body.name,100,true),textField(body.objective || '',1000))});
     if(body.action!=='thread') throw httpError(400,'Invalid action');
     const title=textField(body.title,120,true),campaignId=body.campaignId || null;
