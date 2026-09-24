@@ -1,0 +1,27 @@
+name: Instagram publishing schema
+on:
+  push:
+    branches: [main]
+    paths: [supabase/migrations/20260924090000_instagram_publishing.sql]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: instagram-publishing-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply private publishing queue and storage bucket
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260924090000_instagram_publishing.sql
+      - name: Verify queue leases and access controls without retaining test records
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/instagram_publishing.sql

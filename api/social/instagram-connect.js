@@ -1,3 +1,5 @@
+import { INSTAGRAM_ANALYTICS_SCOPES } from '../../lib/instagramClient.js';
+import { PUBLISH_SCOPE } from '../../lib/instagramPublishing.js';
 import { verifySocialSessionAuthorizationHeader } from '../../lib/socialSession.js';
 import { createSocialOAuthState } from '../../lib/socialOAuthState.js';
 import {
@@ -43,6 +45,7 @@ export default async function handler(req, res) {
       clientId: process.env.INSTAGRAM_APP_ID,
       redirectUri: process.env.INSTAGRAM_REDIRECT_URI,
       state,
+      scopes: req.body?.publishing === true ? [...INSTAGRAM_ANALYTICS_SCOPES, PUBLISH_SCOPE] : INSTAGRAM_ANALYTICS_SCOPES,
     });
 
     return res.status(200).json({ authorizationUrl });

@@ -20,6 +20,7 @@
   let strategistDialog = null;
   const accountMetrics = new Map();
   let planViews = [];
+  let publishingViews = [];
   let sessionToken = null;
   let sessionExpiryTimer = null;
   let authPopup = null;
@@ -39,6 +40,8 @@
   function denyAccess() {
     strategistDialog?.close();
     planViews.forEach(view => view.close());
+    publishingViews.forEach(view => view.close());
+    publishingViews = [];
     accountMetrics.clear();
     sessionToken = null;
     if (sessionExpiryTimer) {
@@ -156,6 +159,8 @@
 
   function renderAccounts(accounts) {
     planViews.forEach(view => view.close());
+    publishingViews.forEach(view => view.close());
+    publishingViews = [];
     planViews = [];
     accountMetrics.clear();
     accountsEl.replaceChildren();
@@ -219,6 +224,22 @@
           openChat:(context,trigger)=>openStrategist(context,trigger),
           getMetrics:()=>accountMetrics.get(account.id)
         })});
+        const publishing = document.createElement('div');
+        block.append(publishing);
+        publishingViews.push(window.JmnPublishing.mount(publishing, {account,
+          connect: () => startInstagramConnect(true),
+          request: async command => {
+            if(!sessionToken)throw new Error('Reopen Social Center from your portal.');
+            const response=await fetch(command?'/api/social/publishing':'/api/social/publishing?account='+encodeURIComponent(account.id),{
+              method:command?'POST':'GET',cache:'no-store',
+              headers:{Authorization:`Bearer ${sessionToken}`,...(command?{'Content-Type':'application/json'}:{})},
+              body:command?JSON.stringify({...command,accountId:account.id}):undefined
+            });
+            if(response.status===401){denyAccess();throw new Error('Your session expired. Reopen Social Center from your portal.');}
+            const data=await response.json();if(!response.ok)throw new Error(data.error||'Publishing is unavailable.');
+            if(!sessionToken)throw new Error('Session expired.');return data;
+          }
+        }));
         const panel = document.createElement('section');
         panel.className = 'metrics-panel';
         const button = document.createElement('button');
@@ -532,7 +553,7 @@
     }, 500);
   }
 
-  async function startInstagramConnect() {
+  async function startInstagramConnect(publishing = false) {
     if (!sessionToken || authPopup) return;
 
     // Open synchronously inside the user gesture so browsers do not classify
@@ -555,7 +576,7 @@
           'Authorization': `Bearer ${sessionToken}`,
           'Content-Type': 'application/json'
         },
-        body: '{}'
+        body: JSON.stringify({publishing:publishing === true})
       });
 
       if (response.status === 401) {
@@ -610,7 +631,7 @@
     setFeedback('Instagram connection failed. Try again.', 'error');
   });
 
-  connectBtn.addEventListener('click', startInstagramConnect);
+  connectBtn.addEventListener('click', () => startInstagramConnect());
   refreshBtn.addEventListener('click', () => refreshStatus());
 
   async function authenticateAndStart() {
