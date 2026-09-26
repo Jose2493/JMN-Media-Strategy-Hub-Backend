@@ -21,3 +21,20 @@ test('Preview serves only fixtures with network and framing disabled',()=>{
  const nonce=csp.match(/nonce-([^']+)/)[1];assert.equal((res.body.match(new RegExp('nonce="'+nonce.replace(/[+]/g,'\\+')+'"','g'))||[]).length,2);
  assert.notEqual(request('preview').headers['Content-Security-Policy'],csp);
 });
+
+test('fixture adapter rejects every mutation without retaining changes',async()=>{
+ const {default:vm}=await import('node:vm');
+ const page=request('preview').body;
+ const script=page.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
+ let options,change;const root={replaceChildren(){}},feedback={textContent:''},scenario={value:'populated',addEventListener(_event,fn){change=fn;}};
+ const context={location:{hash:''},document:{getElementById(id){return {'qa-publishing':root,'qa-feedback':feedback,'qa-scenario':scenario}[id];}},window:{JmnPublishing:{mount(_root,opts){options=opts;return {close(){}};}}}};
+ vm.runInNewContext(script,context);
+ const original=await options.request();assert.equal(original.jobs.length,6);
+ for(const command of ['upload','save','schedule','cancel','anything'])await assert.rejects(options.request({command,id:'qa-draft'}),/Visual QA only/);
+ assert.match((await options.request({command:'preview',id:'qa-draft'})).url,/^data:image\/svg\+xml/);
+ original.jobs[0].caption='mutated';assert.notEqual((await options.request()).jobs[0].caption,'mutated');
+ options.connect();assert.match(feedback.textContent,/disabled/);
+ scenario.value='empty';change();assert.equal((await options.request()).jobs.length,0);
+ scenario.value='inactive';change();assert.equal((await options.request()).ready,false);
+ scenario.value='scope';change();assert.equal(options.account.scopes.length,0);
+});
