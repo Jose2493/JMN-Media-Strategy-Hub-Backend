@@ -34,7 +34,7 @@ async function setup({jobs=[],ready=true,scopes=['instagram_business_content_pub
 test('filters retain all job states and existing draft/cancel actions',async()=>{
  const f=await setup({jobs:['draft','scheduled','published','failed','uncertain','processing','cancelled'].map(status=>({id:status,status,caption:status}))});
  const rows=()=>all(f.root).filter(n=>n.tag==='article');assert.equal(rows().length,7);
- click(f.root,'Drafts');assert.equal(rows().length,1);assert.ok(find(f.root,n=>n.textContent==='Continue draft'));
+ click(f.root,'Drafts');assert.equal(rows().length,1);assert.ok(find(f.root,n=>n.textContent==='Continue'));
  click(f.root,'Scheduled');assert.equal(rows().length,1);await click(f.root,'Cancel');assert.deepEqual({...f.calls.find(c=>c?.command==='cancel')},{command:'cancel',id:'scheduled'});
  click(f.root,'Published');assert.equal(rows().length,1);click(f.root,'Posts');assert.equal(rows().length,7);f.instance.close();
 });
@@ -54,7 +54,7 @@ test('composer keeps schedule default, switches controls, and updates live capti
  const actions=find(d,n=>n.className==='publisher-actions');assert.equal(actions.parent,d);click(d,'Cancel');assert.equal(d.open,false);f.instance.close();
 });
 test('existing draft saves without reupload and keeps the exact save payload',async()=>{
- const f=await setup({jobs:[{id:'draft-id',status:'draft',kind:'IMAGE',caption:'Saved caption'}]});click(f.root,'Continue draft');await tick();const d=find(f.body,n=>n.tag==='dialog');await click(d,'Save draft');
+ const f=await setup({jobs:[{id:'draft-id',status:'draft',kind:'IMAGE',caption:'Saved caption'}]});click(f.root,'Continue');await tick();const d=find(f.body,n=>n.tag==='dialog');await click(d,'Save draft');
  const call=f.calls.find(c=>c?.command==='save');assert.deepEqual({...call},{command:'save',id:'draft-id',caption:'Saved caption',timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',now:false,scheduledAt:null});assert.equal(f.uploads.length,0);f.instance.close();
 });
 test('new media uses original signed upload and post-now request',async()=>{

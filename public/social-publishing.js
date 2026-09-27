@@ -2,7 +2,7 @@
  'use strict';
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
  const button=(text,fn,primary=false)=>{const b=el('button',text,`btn ${primary?'btn-primary':'btn-secondary'}`);b.type='button';b.onclick=fn;return b;};
- const labels={draft:'Draft',scheduled:'Scheduled',processing:'Preparing on Instagram',publishing:'Publishing',published:'Published',failed:'Needs attention',uncertain:'Check Instagram',cancelled:'Cancelled'};
+ const labels={draft:'Draft',scheduled:'Scheduled',processing:'Processing',publishing:'Publishing',published:'Published',failed:'Needs attention',uncertain:'Check Instagram',cancelled:'Cancelled'};
  const errors={CONFIRMATION_REQUIRED:'Instagram did not confirm the result. Check your profile before creating another post.',RECONNECT_REQUIRED:'Reconnect Instagram before creating a new scheduled post.',PROCESSING_TIMEOUT:'Instagram took too long to process this file. Check its format before trying a new post.',PREPARATION_FAILED:'Instagram could not prepare this post. Check the media and connection before creating a new post.'};
  window.JmnPublishing={mount(root,{account,request,connect}){
   let closed=false,dialog=null,jobs=[],ready=false,timer=null,loading=false,activeTab='posts';
@@ -35,16 +35,19 @@
     empty.append(el('span','＋','publishing-empty-icon'),el('h4',copy[0]),el('p',copy[1]),button('Create post',()=>compose()));list.append(empty);
    }
    for(const job of visibleJobs){
-    const row=el('article','','publishing-row');const detail=el('div');
-    detail.append(el('span',labels[job.status]||job.status,'publishing-status status-'+job.status),el('h4',job.caption?.slice(0,100)||`Untitled ${job.kind==='REELS'?'Reel':'photo'}`));
+    const row=el('article','','publishing-row');const detail=el('div','','publishing-row-detail');
+    const summary=el('div','','publishing-row-summary');
+    summary.append(el('span',labels[job.status]||job.status,'publishing-status status-'+job.status),el('h4',job.caption?.slice(0,100)||`Untitled ${job.kind==='REELS'?'Reel':'photo'}`));detail.append(summary);
+    detail.append(el('p',`${job.kind==='REELS'?'Reel':'Photo'} · Instagram`,'publishing-row-meta'));
     if(job.scheduled_at)detail.append(el('p',new Date(job.scheduled_at).toLocaleString(undefined,{timeZone:job.timezone})+' · '+job.timezone,'metrics-note'));
     if(job.error_code)detail.append(el('p',errors[job.error_code]||'Review this post before trying again.','publishing-warning'));
     const actions=el('div','','publishing-row-actions');
-    if(job.status==='draft')actions.append(button('Continue draft',()=>compose(job)));
+    if(job.status==='draft')actions.append(button('Continue',()=>compose(job)));
     if(['draft','scheduled'].includes(job.status))actions.append(button('Cancel',async()=>{
      if(!window.confirm('Cancel this post? It will not be sent to Instagram.'))return;
      try{await request({command:'cancel',id:job.id});await refresh();}catch(e){message.textContent=e.message;}
     }));
+    for(const action of actions.children){if(action.textContent==='Cancel')action.className+=' publishing-cancel';else action.className+=' publishing-continue';}
     row.append(detail,actions);list.append(row);
    }
   }
