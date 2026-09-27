@@ -116,3 +116,11 @@
 @media(max-width:700px){.dashboard-shell{padding:16px}.dashboard-shell .header{margin-bottom:16px}.dashboard-shell .header h1{font-size:21px}.dashboard-shell .header p{font-size:12px}.dashboard-shell .account,.dashboard-shell .account-block .account{flex-wrap:wrap}.publishing-section{padding:16px 16px 8px}.publishing-tabs{width:100%}.publishing-tabs .btn{padding:8px;min-width:0}.publishing-row{gap:12px;padding:16px 8px;margin:0 -8px}.publishing-row-summary{flex-direction:column;gap:8px;align-items:flex-start}.publishing-row-actions{align-self:flex-end}.publishing-row h4{-webkit-line-clamp:2}.publishing-row-meta,.publishing-row .metrics-note{margin-top:4px}.publishing-row .publishing-warning{margin-top:8px}}
 @media(prefers-reduced-motion:reduce){.publishing-row{transition:none}}
 body:has(.dashboard-shell){background:#121316}
+.dashboard-shell .panel-head{display:flex;padding:8px 16px}
+.dashboard-shell .platform{display:flex;align-items:center;gap:8px}
+.dashboard-shell .platform-icon{display:grid;place-items:center}
+.dashboard-shell .pill{display:inline-flex;align-items:center;border-radius:6px}
+.dashboard-shell .pill.connected:before{margin-right:6px}
+.dashboard-shell .account,.dashboard-shell .account-block .account{padding-top:4px;padding-bottom:8px}
+.publishing-row{padding-top:12px;padding-bottom:12px}
+.publishing-row .metrics-note{margin-top:4px}
