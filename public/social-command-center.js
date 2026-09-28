@@ -192,14 +192,15 @@
       meta.textContent = `${formatAccountType(account.accountType)} account`;
       meta.title = formatDate(account.tokenExpiresAt);
 
-      left.append(name, meta);
+      left.append(metricNode('div', 'Instagram', 'account-channel'), name, meta);
       identity.append(avatar, left);
 
       const status = document.createElement('div');
       status.className = 'account-status';
-      status.textContent = safeText(account.status, 'Connected');
+      status.textContent = account.status === 'active' ? 'Connected' : safeText(account.status, 'Connected');
 
-      row.append(identity, status);
+      name.append(status);
+      row.append(identity);
       const block = document.createElement('div');
       block.className = 'account-block';
       block.append(row);
@@ -656,3 +657,4 @@
 
   authenticateAndStart();
 })();
+

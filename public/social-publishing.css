@@ -124,3 +124,27 @@ body:has(.dashboard-shell){background:#121316}
 .dashboard-shell .account,.dashboard-shell .account-block .account{padding-top:4px;padding-bottom:8px}
 .publishing-row{padding-top:12px;padding-bottom:12px}
 .publishing-row .metrics-note{margin-top:4px}
+
+/* Final micro-polish: account identity, cohesive rows and quiet status glyphs. */
+.dashboard-shell .panel:has(.account)>.panel-head{display:none}
+.dashboard-shell .account,.dashboard-shell .account-block .account{padding:12px 16px;gap:12px}
+.dashboard-shell .account-channel{font-size:13px;font-weight:500;line-height:1.5;color:#ececf0}
+.dashboard-shell .account-name{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;font-weight:400;line-height:1.6;color:#adb0bb}
+.dashboard-shell .account-status{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:11px;color:#a1c9b3}
+.dashboard-shell .account-status:before{content:'·';color:#747985}
+.dashboard-shell .account-meta{font-size:10px;color:#8f939e}
+.publishing-row{justify-content:flex-start;gap:24px}
+.publishing-row-detail{flex:0 1 640px;min-width:0}
+.publishing-row-summary{align-items:center;gap:8px}
+.publishing-row-actions{flex-shrink:0}
+.publishing-row-meta,.publishing-row .metrics-note{margin-top:4px}
+.publishing-status:before{width:12px;height:12px;border-radius:0;background:currentColor;opacity:.9;mask:var(--status-icon) center/contain no-repeat}
+.status-draft{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%203H6a2%202%200%200%200-2%202v14a2%202%200%200%200%202%202h12a2%202%200%200%200%202-2V9l-6-6Z%20M14%203v6h6%20M8%2013h8%20M8%2017h5%22/%3E%3C/svg%3E")}
+.status-scheduled{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M8%202v4%20M16%202v4%20M3%2010h18%20M5%204h14a2%202%200%200%201%202%202v14a2%202%200%200%201-2%202H5a2%202%200%200%201-2-2V6a2%202%200%200%201%202-2%22/%3E%3C/svg%3E")}
+.status-published{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%206%209%2017l-5-5%22/%3E%3C/svg%3E")}
+.status-processing{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%203a9%209%200%201%200%209%209%20M12%207v5l3%202%22/%3E%3C/svg%3E")}
+.status-publishing{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2020V4%20M5%2011l7-7%207%207%22/%3E%3C/svg%3E")}
+.status-failed{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%208v5%20M12%2017h.01%20M10.3%203.9%202%2018a2%202%200%200%200%201.7%203h16.6a2%202%200%200%200%201.7-3L13.7%203.9a2%202%200%200%200-3.4%200%22/%3E%3C/svg%3E")}
+.status-uncertain{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%203h7v7%20M21%203l-9%209%20M10%203H5a2%202%200%200%200-2%202v14a2%202%200%200%200%202%202h14a2%202%200%200%200%202-2v-5%22/%3E%3C/svg%3E")}
+.status-cancelled{--status-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%206l12%2012%20M18%206%206%2018%22/%3E%3C/svg%3E")}
+@media(max-width:700px){.publishing-row-detail{flex:auto;width:100%}.publishing-row{gap:12px}.publishing-row-actions{align-self:flex-start}.publishing-row-summary{align-items:flex-start}.dashboard-shell .account-status{margin:0}}

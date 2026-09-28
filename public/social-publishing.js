@@ -3,7 +3,7 @@
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
  const button=(text,fn,primary=false)=>{const b=el('button',text,`btn ${primary?'btn-primary':'btn-secondary'}`);b.type='button';b.onclick=fn;return b;};
  const labels={draft:'Draft',scheduled:'Scheduled',processing:'Processing',publishing:'Publishing',published:'Published',failed:'Needs attention',uncertain:'Check Instagram',cancelled:'Cancelled'};
- const errors={CONFIRMATION_REQUIRED:'Instagram did not confirm the result. Check your profile before creating another post.',RECONNECT_REQUIRED:'Reconnect Instagram before creating a new scheduled post.',PROCESSING_TIMEOUT:'Instagram took too long to process this file. Check its format before trying a new post.',PREPARATION_FAILED:'Instagram could not prepare this post. Check the media and connection before creating a new post.'};
+ const errors={CONFIRMATION_REQUIRED:'Publication unconfirmed. Check Instagram before creating another post.',RECONNECT_REQUIRED:'Reconnect Instagram to schedule a new post.',PROCESSING_TIMEOUT:'Processing timed out. Check the file format before creating a new post.',PREPARATION_FAILED:'Couldn’t prepare this post. Check the media or reconnect Instagram.'};
  window.JmnPublishing={mount(root,{account,request,connect}){
   let closed=false,dialog=null,jobs=[],ready=false,timer=null,loading=false,activeTab='posts';
   const section=el('section','','publishing-section');root.append(section);
