@@ -171,6 +171,22 @@
     document.querySelector('.connection-settings').open = !connected;
     connectBtn.textContent = connected ? 'Connect another account' : 'Connect Instagram';
 
+    const contentRequest = accountId => async command => {
+            if(!sessionToken)throw new Error('Reopen Social Center from your portal.');
+            const response=await fetch(command?'/api/social/approved-content':'/api/social/approved-content?account='+encodeURIComponent(accountId || ''),{
+              method:command?'POST':'GET',cache:'no-store',
+              headers:{Authorization:`Bearer ${sessionToken}`,...(command?{'Content-Type':'application/json'}:{})},
+              body:command?JSON.stringify({...command,accountId:accountId}):undefined
+            });
+            if(response.status===401){denyAccess();throw new Error('Your session expired. Reopen Social Center from your portal.');}
+            const data=await response.json();if(!response.ok)throw new Error(data.error||'Approved content is unavailable.');
+            if(!sessionToken)throw new Error('Session expired.');return data;
+    };
+    if(!connected){
+      const contentRoot=document.createElement('div');accountsEl.append(contentRoot);
+      publishingViews.push(window.JmnPublishing.mountContent(contentRoot,{request:contentRequest(null)}));
+    }
+
     let firstActive = true;
     for (const account of accounts) {
       if (!account || typeof account !== 'object') continue;
@@ -228,6 +244,7 @@
         const publishing = document.createElement('div');
         block.append(publishing);
         publishingViews.push(window.JmnPublishing.mount(publishing, {account,
+          approvedRequest: contentRequest(account.id),
           connect: () => startInstagramConnect(true),
           request: async command => {
             if(!sessionToken)throw new Error('Reopen Social Center from your portal.');
@@ -657,4 +674,3 @@
 
   authenticateAndStart();
 })();
-

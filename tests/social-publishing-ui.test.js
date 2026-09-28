@@ -23,12 +23,59 @@ const all=n=>[n,...n.children.flatMap(all)];
 const find=(n,p)=>all(n).find(p);
 const click=(root,text)=>{const n=find(root,n=>n.tag==='button'&&n.textContent===text);assert.ok(n,`Button ${text} exists`);return n.onclick();};
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-async function setup({jobs=[],ready=true,scopes=['instagram_business_content_publish']}={}){
+test('In Review has protected messaging and no original or post action until approval',async()=>{
+ const asset={id:'review',title:'Review film',kind:'REELS',status:'IN_REVIEW',previewUrl:'blob:watermarked',posterUrl:'data:watermarked'};
+ const commands=[];const f=await setup({approvedRequest:async p=>{commands.push(p);if(!p)return {assets:[{...asset}]};if(p.command==='review')return {...asset};if(p.command==='approve'){asset.status='APPROVED';return {asset:{...asset}};}throw new Error('Unexpected');}});
+ await tick();assert.equal(all(f.root).some(n=>n.textContent==='Post this'||n.textContent==='Download original'),false);
+ await click(f.root,'Review preview');const d=find(f.body,n=>n.tag==='dialog');
+ assert.ok(find(d,n=>n.textContent==='Optimized for fast playback. Original quality is preserved.'));
+ assert.ok(find(d,n=>n.tag==='video'&&n.src==='blob:watermarked'));
+ await click(d,'Approve');await tick();
+ assert.ok(find(f.root,n=>n.textContent==='Download original'));assert.ok(find(f.root,n=>n.textContent==='Post this'));
+ assert.equal(commands.filter(p=>p?.command==='approve').length,1);f.instance.close();
+});
+test('rejected QA approval stays In Review and exposes no original download',async()=>{
+ const asset={id:'review',title:'Review film',kind:'REELS',status:'IN_REVIEW',previewUrl:'blob:watermarked'};
+ const f=await setup({approvedRequest:async p=>{if(!p)return {assets:[asset]};if(p.command==='review')return asset;throw new Error('Visual QA only');}});
+ await tick();await click(f.root,'Review preview');const d=find(f.body,n=>n.tag==='dialog');await click(d,'Approve');
+ assert.equal(d.open,true);assert.match(find(d,n=>n.className==='publishing-warning').textContent,/Visual QA only/);
+ assert.equal(all(f.root).some(n=>n.textContent==='Download original'),false);f.instance.close();
+});
+test('approved cards open the existing composer preloaded and publish without reupload',async()=>{
+ for(const kind of ['IMAGE','REELS']){
+  const bridgeCalls=[],asset={id:'approved-id',title:'Approved piece',status:'APPROVED',kind,caption:'Suggested caption',previewUrl:'https://private.example/signed'};
+  const f=await setup({approvedRequest:async payload=>{bridgeCalls.push(payload);if(!payload)return {assets:[asset,{...asset,status:'withdrawn'}]};if(payload.command==='preview')return asset;return {job:{id:'prepared-id',kind}};}});
+  await tick();click(f.root,'Approved');assert.equal(all(f.root).filter(n=>n.className==='approved-asset').length,1);
+  await click(f.root,'Post this');const d=find(f.body,n=>n.tag==='dialog');assert.ok(d.open);
+  assert.ok(find(d,n=>n.src===asset.previewUrl&&n.tag===(kind==='REELS'?'video':'img')));
+  const caption=find(d,n=>n.tag==='textarea');assert.equal(caption.value,'Suggested caption');
+  assert.equal(bridgeCalls.filter(c=>c?.command==='prepare').length,0);
+  caption.value='Client edits';caption.oninput();find(d,n=>n.type==='radio'&&n.value==='now').onchange();await click(d,'Post now');
+  assert.equal(bridgeCalls.filter(c=>c?.command==='prepare').length,1);
+  const save=f.calls.find(c=>c?.command==='schedule');assert.equal(save.id,'prepared-id');assert.equal(save.caption,'Client edits');assert.equal(save.now,true);
+  assert.equal(f.uploads.length,0);assert.equal(f.calls.some(c=>c?.command==='upload'),false);f.instance.close();
+ }
+});
+test('approved schedule uses existing values and rejected preparation never saves',async()=>{
+ for(const blocked of [false,true]){
+  const asset={id:'a',title:'Approved photo',status:'APPROVED',kind:'IMAGE',caption:'Caption',previewUrl:'data:image/png;base64,AA'};
+  const f=await setup({approvedRequest:async p=>{if(!p)return {assets:[asset]};if(p.command==='preview')return asset;if(blocked)throw new Error('Visual QA only');return {job:{id:'prepared',kind:'IMAGE'}};}});
+  await tick();click(f.root,'Approved');await click(f.root,'Post this');const d=find(f.body,n=>n.tag==='dialog');
+  const date=new Date(Date.now()+86400000),pad=n=>String(n).padStart(2,'0');
+  const local=date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+  find(d,n=>n.type==='datetime-local').value=local;await click(d,'Schedule post');
+  const save=f.calls.find(c=>c?.command==='schedule');
+  if(blocked){assert.equal(save,undefined);assert.match(find(d,n=>n.className==='publishing-warning').textContent,/Visual QA only/);}
+  else {assert.equal(save.now,false);assert.equal(save.scheduledAt,new Date(local).toISOString());}
+  assert.equal(f.uploads.length,0);f.instance.close();
+ }
+});
+async function setup({jobs=[],ready=true,scopes=['instagram_business_content_publish'],approvedRequest}={}){
  const body=new Element('body'),root=new Element('main');body.append(root);
  const calls=[],uploads=[];let connections=0;
  const context={document:{body,hidden:false,createElement:t=>new Element(t)},window:{confirm:()=>true},crypto:{randomUUID:()=> 'new-id'},Intl,Date,Event,Image:class {width=100;height=100;async decode(){}},URL:class extends URL {static createObjectURL(){return 'blob:preview';}static revokeObjectURL(){}},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{uploads.push({url:String(url),options});return {ok:true};}};
  vm.runInNewContext(source,context);
- const instance=context.window.JmnPublishing.mount(root,{account:{username:'jmnmedia',scopes},connect:()=>connections++,request:async payload=>{calls.push(payload);if(!payload)return {jobs,ready};if(payload.command==='preview')return {url:'https://example.supabase.co/preview'};if(payload.command==='upload')return {uploadUrl:'https://example.supabase.co/upload'};return {};}});
+ const instance=context.window.JmnPublishing.mount(root,{approvedRequest,account:{username:'jmnmedia',scopes},connect:()=>connections++,request:async payload=>{calls.push(payload);if(!payload)return {jobs,ready};if(payload.command==='preview')return {url:'https://example.supabase.co/preview'};if(payload.command==='upload')return {uploadUrl:'https://example.supabase.co/upload'};return {};}});
  await tick();return {root,body,calls,uploads,context,instance,connections:()=>connections};
 }
 test('filters retain all job states and existing draft/cancel actions',async()=>{

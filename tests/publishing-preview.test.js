@@ -27,8 +27,19 @@ test('fixture adapter rejects every mutation without retaining changes',async()=
  const page=request('preview').body;
  const script=page.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
  let options,change;const root={replaceChildren(){}},feedback={textContent:''},scenario={value:'populated',addEventListener(_event,fn){change=fn;}};
- const context={location:{hash:''},document:{getElementById(id){return {'qa-publishing':root,'qa-feedback':feedback,'qa-scenario':scenario}[id];}},window:{JmnPublishing:{mount(_root,opts){options=opts;return {close(){}};}}}};
+ const context={URL:{createObjectURL:()=> 'blob:fictional'},Blob,Uint8Array,atob,location:{hash:''},document:{getElementById(id){return {'qa-publishing':root,'qa-feedback':feedback,'qa-scenario':scenario}[id];}},window:{JmnPublishing:{mount(_root,opts){options=opts;return {close(){}};}}}};
  vm.runInNewContext(script,context);
+ const approved=await options.approvedRequest();
+ assert.equal(approved.assets.length,3);assert.deepEqual(Array.from(approved.assets,a=>a.kind),['REELS','REELS','IMAGE']);
+ for(const asset of approved.assets){
+  assert.equal((await options.approvedRequest({command:'review',assetId:asset.id})).id,asset.id);
+  if(asset.status==='APPROVED')assert.equal((await options.approvedRequest({command:'preview',assetId:asset.id})).id,asset.id);
+  else await assert.rejects(options.approvedRequest({command:'preview',assetId:asset.id}),/Visual QA only/);
+  for(const command of ['approve','download'])await assert.rejects(options.approvedRequest({command,assetId:asset.id}),/Visual QA only/);
+  await assert.rejects(options.approvedRequest({command:'prepare',assetId:asset.id}),/Visual QA only/);
+ }
+ await assert.rejects(options.approvedRequest({command:'preview',assetId:'foreign'}),/Visual QA only/);
+ approved.assets[0].title='changed';assert.notEqual((await options.approvedRequest()).assets[0].title,'changed');
  const original=await options.request();assert.equal(original.jobs.length,6);
  for(const command of ['upload','save','schedule','cancel','anything'])await assert.rejects(options.request({command,id:'qa-draft'}),/Visual QA only/);
  assert.match((await options.request({command:'preview',id:'qa-draft'})).url,/^data:image\/svg\+xml/);

@@ -4,9 +4,72 @@
  const button=(text,fn,primary=false)=>{const b=el('button',text,`btn ${primary?'btn-primary':'btn-secondary'}`);b.type='button';b.onclick=fn;return b;};
  const labels={draft:'Draft',scheduled:'Scheduled',processing:'Processing',publishing:'Publishing',published:'Published',failed:'Needs attention',uncertain:'Check Instagram',cancelled:'Cancelled'};
  const errors={CONFIRMATION_REQUIRED:'Publication unconfirmed. Check Instagram before creating another post.',RECONNECT_REQUIRED:'Reconnect Instagram to schedule a new post.',PROCESSING_TIMEOUT:'Processing timed out. Check the file format before creating a new post.',PREPARATION_FAILED:'Couldn’t prepare this post. Check the media or reconnect Instagram.'};
- window.JmnPublishing={mount(root,{account,request,connect}){
+ function mountContent(root,{request,onPost}){
+  let closed=false,items=[],tab='IN_REVIEW',reviewDialog=null;
+  const section=el('section','','approved-content'),intro=el('div');
+  intro.append(el('h3','Content'),el('p','Review your latest work and prepare your next post.','publishing-subtitle'));
+  const tabs=el('nav','','publishing-tabs');tabs.setAttribute('aria-label','Filter client content');
+  const note=el('p','Loading content…','metrics-note');note.setAttribute('role','status');
+  const assets=el('div','','approved-assets');
+  for(const [state,label] of [['IN_REVIEW','In Review'],['APPROVED','Approved']]){
+   const b=button(label,()=>{tab=state;draw();});b.dataset.state=state;tabs.append(b);
+  }
+  section.append(intro,tabs,note,assets);
+  // Place content above Publishing without changing the publishing layout.
+  const previous=Array.from(root.children);root.replaceChildren(section,...previous);
+  async function act(trigger,fn){trigger.disabled=true;note.textContent='';try{await fn();}catch(e){if(!closed)note.textContent=e.message;}finally{trigger.disabled=false;}}
+  function draw(){
+   if(closed)return;assets.replaceChildren();
+   for(const b of tabs.children)b.setAttribute('aria-pressed',String(b.dataset.state===tab));
+   const visible=items.filter(a=>a.status===tab);note.textContent=visible.length?'':tab==='IN_REVIEW'?'Nothing awaiting review.':'Your approved content will appear here.';
+   for(const asset of visible){
+    const card=el('article','','approved-asset'),thumb=el('img');thumb.alt=asset.title;if(asset.posterUrl||asset.previewUrl)thumb.src=asset.posterUrl||asset.previewUrl;
+    const detail=el('div','','approved-asset-detail'),approved=asset.status==='APPROVED';
+    detail.append(el('span',approved?'Approved':'In Review','publishing-status '+(approved?'status-published':'status-draft')),el('h4',asset.title));
+    detail.append(el('p',[asset.kind==='REELS'?'Reel':'Photo',asset.projectLabel,asset.approvedAt?new Date(asset.approvedAt).toLocaleDateString():null].filter(Boolean).join(' · '),'publishing-row-meta'));
+    const actions=el('div','','content-actions');
+    const review=button(approved?'Preview':'Review preview',()=>act(review,async()=>{
+     const fresh=await request({command:'review',assetId:asset.id});if(closed)return;openReview(fresh);
+    }));actions.append(review);
+    if(approved){
+     const download=button('Download original',()=>act(download,async()=>{
+      const result=await request({command:'download',assetId:asset.id});if(closed)return;
+      const link=el('a');link.href=result.url;link.rel='noreferrer';link.referrerPolicy='no-referrer';link.download='';document.body.append(link);link.click();link.remove();
+     }));
+     const post=button('Post this',()=>act(post,async()=>{
+      if(!onPost)throw new Error('Connect Instagram to post this content.');
+      const fresh=await request({command:'preview',assetId:asset.id});if(!closed)onPost(fresh);
+     }),true);actions.append(download,post);
+    }
+    card.append(thumb,detail,actions);assets.append(card);
+   }
+  }
+  function openReview(asset){
+   reviewDialog?.close();const d=el('dialog','','publisher-dialog content-review-dialog');reviewDialog=d;d.setAttribute('aria-label','Review content');
+   const bar=el('div','','publisher-bar'),heading=el('div');heading.append(el('h2',asset.title),el('p','Review Preview'));
+   const close=button('×',()=>d.close());close.setAttribute('aria-label','Close review');bar.append(heading,close);
+   const body=el('div','','content-review-body');body.append(el('p','Optimized for fast playback. Original quality is preserved.','content-preview-note'));
+   const media=el(asset.kind==='REELS'?'video':'img');
+   if(asset.kind==='REELS'){media.controls=true;media.preload='metadata';if(asset.posterUrl)media.poster=asset.posterUrl;}else media.alt='Protected review preview';
+   if(asset.previewUrl)media.src=asset.previewUrl;body.append(media,el('p','For review only','content-preview-note'));
+   const footer=el('div','','publisher-actions'),feedback=el('p','','publishing-warning');feedback.setAttribute('role','status');footer.append(feedback);
+   if(asset.status==='IN_REVIEW'){
+    const approve=button('Approve',async()=>{
+     if(!window.confirm('Approve this content? Original download and publishing will become available.'))return;
+     approve.disabled=true;
+     try{await request({command:'approve',assetId:asset.id});if(!closed){d.close();tab='APPROVED';await load();}}
+     catch(e){feedback.textContent=e.message;}finally{approve.disabled=false;}
+    },true);footer.append(approve);
+   }
+   d.append(bar,body,footer);document.body.append(d);d.addEventListener('close',()=>{d.remove();if(reviewDialog===d)reviewDialog=null;},{once:true});d.showModal();
+  }
+  async function load(){try{const data=await request();if(closed)return;items=data.assets;draw();}catch(e){if(!closed)note.textContent=e.message;}}
+  load();return {close(){closed=true;reviewDialog?.close();}};
+ }
+ window.JmnPublishing={mountContent,mount(root,{account,request,connect,approvedRequest}){
   let closed=false,dialog=null,jobs=[],ready=false,timer=null,loading=false,activeTab='posts';
   const section=el('section','','publishing-section');root.append(section);
+  const content=approvedRequest?mountContent(root,{request:approvedRequest,onPost:asset=>compose(null,asset)}):null;
   const head=el('div','','publishing-head'),title=el('div');
   title.append(el('h3','Publishing'),el('p','Create, schedule and manage your social content.','publishing-subtitle'));
   const create=button('+ Create post',()=>compose(),true);head.append(title,create);
@@ -52,16 +115,16 @@
    }
   }
   async function refresh(){if(closed||loading)return;loading=true;try{const data=await request();if(closed)return;jobs=data.jobs;ready=data.ready;draw();}catch(e){if(!closed)message.textContent=e.message;}finally{loading=false;}}
-  function compose(existing){
+  function compose(existing,approvedAsset){
    if(closed)return;dialog?.close();
-   let id=existing?.id||crypto.randomUUID(),kind=existing?.kind||'IMAGE',uploaded=!!existing,busy=false,objectUrl=null;
+   let id=existing?.id||crypto.randomUUID(),kind=approvedAsset?.kind||existing?.kind||'IMAGE',uploaded=!!existing,busy=false,objectUrl=null;
    const d=el('dialog','','publisher-dialog');dialog=d;d.setAttribute('aria-label','Create Instagram post');
    const bar=el('div','','publisher-bar'),heading=el('div');
    heading.append(el('h2','Create post'),el('p',`@${account.username} · Instagram`));
    const closeBtn=button('×',()=>{if(!busy)d.close();});closeBtn.setAttribute('aria-label','Close composer');bar.append(heading,closeBtn);
    const body=el('div','','publisher-body'),edit=el('div','','publisher-edit'),preview=el('div','','publisher-preview');
    const fileLabel=el('label','Media','publisher-label');const file=el('input');file.type='file';file.accept='image/jpeg,video/mp4';
-   const uploadZone=el('span','','publisher-upload'),uploadIcon=el('span','↑','publisher-upload-icon'),fileName=el('span',existing?'Replace media':'Drop a photo or reel here','publisher-file-name');
+   const uploadZone=el('span','','publisher-upload'),uploadIcon=el('span','↑','publisher-upload-icon'),fileName=el('span',approvedAsset?approvedAsset.title:existing?'Replace media':'Drop a photo or reel here','publisher-file-name');
    uploadIcon.setAttribute('aria-hidden','true');uploadZone.append(uploadIcon,fileName,el('span','or choose file','publisher-upload-choice'),file);fileLabel.append(uploadZone);
    file.setAttribute('aria-label','Choose a JPEG photo or MP4 Reel');file.setAttribute('aria-describedby','publisher-file-hint');
    uploadZone.addEventListener('dragover',e=>{e.preventDefault();if(!busy)uploadZone.classList.add('is-dragging');});
@@ -69,7 +132,7 @@
    uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('is-dragging');if(busy||!e.dataTransfer.files.length)return;file.files=e.dataTransfer.files;file.dispatchEvent(new Event('change'));});
    const hint=el('p','JPEG up to 8 MB (4:5 to 1.91:1), or MP4 Reel up to 100 MB. Your file is uploaded privately.','metrics-note');
    hint.id='publisher-file-hint';
-   const captionLabel=el('label','Caption','publisher-label');const caption=el('textarea');caption.rows=5;caption.maxLength=2200;caption.value=existing?.caption||'';caption.placeholder='Write a caption…';captionLabel.append(caption);
+   const captionLabel=el('label','Caption','publisher-label');const caption=el('textarea');caption.rows=5;caption.maxLength=2200;caption.value=approvedAsset?.caption||existing?.caption||'';caption.placeholder='Write a caption…';captionLabel.append(caption);
    const count=el('p','','publisher-count'),previewCaption=el('p','','publisher-preview-caption');
    const updateCaption=()=>{count.textContent=`${caption.value.length} / 2,200`;previewCaption.textContent=caption.value||'Your caption will appear here.';};caption.oninput=updateCaption;updateCaption();
    const whenLabel=el('fieldset','','publisher-timing'),when=el('select');when.hidden=true;whenLabel.append(el('legend','Publish'));
@@ -95,9 +158,15 @@
      if(ratio<0.8||ratio>1.91)throw new Error('Crop your photo between 4:5 portrait and 1.91:1 landscape.');}
     showMedia(objectUrl);return f;
    };
-   file.onchange=async()=>{uploaded=false;id=crypto.randomUUID();feedback.textContent='';try{await localFile();fileName.textContent=file.files[0].name;}catch(e){feedback.textContent=e.message;}};
+   file.onchange=async()=>{approvedAsset=null;uploaded=false;id=crypto.randomUUID();feedback.textContent='';try{await localFile();fileName.textContent=file.files[0].name;}catch(e){feedback.textContent=e.message;}};
    async function ensureUpload(){
-    if(uploaded)return;const f=await localFile();const result=await request({command:'upload',id,kind});
+    if(uploaded)return;
+    if(approvedAsset){
+     feedback.textContent='Preparing approved media…';
+     const result=await approvedRequest({command:'prepare',assetId:approvedAsset.id});
+     id=result.job.id;kind=result.job.kind;uploaded=true;return;
+    }
+    const f=await localFile();const result=await request({command:'upload',id,kind});
     const url=new URL(result.uploadUrl);if(url.protocol!=='https:'||!url.hostname.endsWith('.supabase.co'))throw new Error('Unable to prepare a secure upload.');
     feedback.textContent='Uploading media…';
     const response=await fetch(url,{method:'PUT',headers:{'Content-Type':f.type},body:f});
@@ -128,10 +197,13 @@
    const footerButtons=el('div','','publisher-footer-buttons');footerButtons.append(cancelBtn,saveBtn,sendBtn);actions.append(feedback,footerButtons);
    edit.append(fileLabel,hint,captionLabel,count,whenLabel,timeLabel,zoneText);body.append(edit,preview);d.append(bar,body,actions);document.body.append(d);
    d.addEventListener('cancel',e=>{if(busy)e.preventDefault();});d.addEventListener('close',()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);d.remove();if(dialog===d)dialog=null;create.focus();},{once:true});d.showModal();
+   if(approvedAsset){
+    if(approvedAsset.previewUrl)showMedia(approvedAsset.previewUrl);
+    else if(approvedAsset.posterUrl){const poster=el('img');poster.alt='Approved Reel preview';poster.src=approvedAsset.posterUrl;media.replaceChildren(poster);}
+   }
    if(existing)request({command:'preview',id}).then(data=>{if(d.isConnected)showMedia(data.url);}).catch(()=>{uploaded=false;feedback.textContent='Choose your media file to complete this draft.';});
   }
   refresh();timer=setInterval(()=>{if(!document.hidden)refresh();},30000);
-  return {close(){closed=true;clearInterval(timer);dialog?.close();}};
+  return {close(){closed=true;content?.close();clearInterval(timer);dialog?.close();}};
  }};
 })();
-
