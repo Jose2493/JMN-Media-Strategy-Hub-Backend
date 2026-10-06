@@ -1,44 +1,22 @@
 <!doctype html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
-<title>JMN Client Home</title>
-<link rel="stylesheet" href="/client-home.css"><script defer src="/client-home.js"></script>
-</head>
-<body>
-<main class="shell" aria-label="Your JMN workspace">
-<section class="ticker" aria-label="Portal tips">
-<span class="ticker-label"><span aria-hidden="true">✦</span> NEXT MOVES</span>
-<div class="ticker-window">
-<a class="tip" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">Give your next campaign one clear objective. <strong>Plan with Strategist ↗</strong></a>
-<a class="tip" href="https://portal.jmnmedia.com/portal/dashboard/view/174976" target="_top" hidden>Explore your Instagram connection and available insights. <strong>Open Social Center ↗</strong></a>
-<a class="tip" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top" hidden>Bring an idea, refine your message, and save the conversation. <strong>Talk to Strategist ↗</strong></a>
-</div>
-<button id="pause-tips" type="button" aria-label="Pause rotating tips" aria-pressed="false">Pause</button>
-</section>
-<header class="section-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h2>What would you like to move forward?</h2></div><span class="heading-note">Strategy. Content. Connection.</span></header>
-<section class="destination-grid" aria-label="Explore your portal">
-<a class="destination featured" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">
-<div class="card-top"><span class="icon purple" aria-hidden="true">✦</span><span class="category">PLAN &amp; CREATE</span><span class="arrow" aria-hidden="true">↗</span></div>
-<h3>A clearer next move.</h3><p>Explore ideas, shape a campaign and draft captions with JMN Strategist.</p>
-<div class="card-bottom"><span>JMN Strategist</span><span aria-hidden="true">→</span></div>
-</a>
-<a class="destination" href="https://portal.jmnmedia.com/portal/dashboard/view/174976" target="_top">
-<div class="card-top"><span class="icon blue" aria-hidden="true">▥</span><span class="category">EXPLORE &amp; LEARN</span><span class="arrow" aria-hidden="true">↗</span></div>
-<h3>Know your audience.</h3><p>Manage your Instagram connection and explore the insights available for your account.</p>
-<div class="card-bottom"><span>Social Command Center</span><span aria-hidden="true">→</span></div>
-</a>
-<article class="destination">
-<div class="card-top"><span class="icon mint" aria-hidden="true">↓</span><span class="category">REVIEW &amp; DELIVER</span></div>
-<h3>Your creative work.</h3><p>Find shared project files and delivery links in the portal's Media &amp; Deliverables section.</p>
-<div class="card-bottom menu-hint"><span>Media &amp; Deliverables</span><span>In the portal menu</span></div>
-</article>
-</section>
-<section class="lower-grid" aria-label="Make the most of your workspace">
-<div class="focus-panel"><div class="focus-icon" aria-hidden="true">◎</div><div><p class="eyebrow">A USEFUL PLACE TO START</p><h3>One goal. A more focused conversation.</h3><p>Tell your strategist what you want to achieve, who you want to reach and what is getting in the way.</p><a href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">Start a conversation <span aria-hidden="true">→</span></a></div></div>
-<aside class="contact-panel"><p class="eyebrow">YOUR JMN TEAM</p><h3>Keep us in the loop.</h3><p>Have feedback, a question or a new idea? Use <strong>Messages</strong> in the portal menu to reach the team.</p><span class="contact-foot">Your business gives the work its direction.</span></aside>
-</section>
-</main>
-</body></html>
+<title>JMN Media Partner · Home</title>
+<link rel="stylesheet" href="/client-home.css"><link rel="stylesheet" href="/portal-shell.css">
+<script defer src="/client-home.js"></script><script defer src="/portal-embed.js"></script>
+</head><body>
+<main class="shell home-shell" aria-label="Your JMN workspace">
+<header class="home-welcome"><p class="eyebrow">JMN MEDIA PARTNER</p><h1 id="welcome-title">Welcome back.</h1><p>Everything JMN is doing to move your brand forward — in one place.</p><span class="home-mark" aria-hidden="true">✦</span></header>
+<section class="next-move" aria-labelledby="next-move-title"><div><p class="eyebrow">YOUR NEXT MOVE</p><h2 id="next-move-title">Give your next campaign a clear direction.</h2><p>Bring a goal or an idea. Turn it into a plan you can come back to.</p></div><a class="home-button" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top">Open Strategy Session <span aria-hidden="true">→</span></a></section>
+<section aria-labelledby="workspace-title"><div class="section-heading"><h2 id="workspace-title">Your workspace</h2><span>Move from idea to delivery.</span></div>
+<div class="workspace-grid">
+<a class="workspace-entry" href="https://portal.jmnmedia.com/portal/dashboard/view/173775" target="_top"><span class="entry-icon" aria-hidden="true">✦</span><div><h3>Strategy Session</h3><p>Plan campaigns and continue your conversations.</p></div><span class="entry-arrow" aria-hidden="true">→</span></a>
+<a class="workspace-entry" href="https://portal.jmnmedia.com/portal/dashboard/view/174976" target="_top"><span class="entry-icon" aria-hidden="true">◎</span><div><h3>Social Center</h3><p>Review content and prepare your next post.</p></div><span class="entry-arrow" aria-hidden="true">→</span></a>
+<article class="workspace-entry" data-destination="projects"><span class="entry-icon" aria-hidden="true">▤</span><div><h3>Projects</h3><p>Follow the work and your team's latest updates.</p><span class="menu-hint">Open Projects in the portal menu</span></div></article>
+<article class="workspace-entry" data-destination="media"><span class="entry-icon" aria-hidden="true">↓</span><div><h3>Media &amp; Deliverables</h3><p>Find the files and creative work shared with you.</p><span class="menu-hint">Open Media &amp; Deliverables in the portal menu</span></div></article>
+<article class="workspace-entry" data-destination="design" hidden><span class="entry-icon" aria-hidden="true">◇</span><div><h3>Design Studio</h3><p>Create artwork with your available templates.</p></div></article>
+</div></section>
+<section class="home-support" aria-label="Working with JMN"><div><p class="eyebrow">KEEP THE WORK MOVING</p><h3>Feedback gives us direction.</h3><p>Review shared work in Social Center. Use Messages in the portal menu to reach your JMN team.</p></div><div><p class="eyebrow">ONE WORKSPACE</p><p>Your conversations, content and project updates stay in their own destinations, ready when you need them.</p></div></section>
+</main></body></html>

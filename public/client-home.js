@@ -1,24 +1,23 @@
 (() => {
-  'use strict';
-  const tips = [...document.querySelectorAll('.tip')];
-  const ticker = document.querySelector('.ticker');
-  const control = document.getElementById('pause-tips');
-  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let index = 0;
-  let paused = motion.matches;
-  function renderControl() {
-    control.textContent = paused ? 'Play' : 'Pause';
-    control.setAttribute('aria-pressed', String(paused));
-    control.setAttribute('aria-label', (paused ? 'Play' : 'Pause') + ' rotating tips');
+ 'use strict';
+ // SuiteDash owns identity, permissions and native destinations. Presentation only.
+ const slots=new Map([...document.querySelectorAll('[data-destination]')].map(node=>[node.dataset.destination,node]));
+ const safeLink=value=>{
+  if(typeof value!=='string')return null;
+  try{const url=new URL(value);return url.origin==='https://portal.jmnmedia.com'&&url.pathname.startsWith('/portal/')&&!url.username&&!url.password&&!url.search&&!url.hash?url.href:null;}catch{return null;}
+ };
+ window.JmnHomeDisplay=display=>{
+  if(!display||typeof display!=='object')return;
+  const name=typeof display.contactName==='string'?display.contactName.trim().slice(0,80):'';
+  document.getElementById('welcome-title').textContent=name?'Welcome back, '+name+'.':'Welcome back.';
+  for(const [key,node] of slots){
+   const link=safeLink(display.links?.[key]);
+   if(key==='design'&&(display.designStudioVisible!==true||!link)){node.hidden=true;node.querySelector('.configured-link')?.remove();continue;}
+   node.hidden=false;node.querySelector('.configured-link')?.remove();
+   const hint=node.querySelector('.menu-hint');if(hint)hint.hidden=!!link;
+   if(!link)continue;
+   const anchor=document.createElement('a');anchor.className='configured-link home-button';anchor.href=link;anchor.target='_top';anchor.textContent='Open '+node.querySelector('h3').textContent;
+   node.querySelector('div').append(anchor);
   }
-  control.addEventListener('click', () => { paused = !paused; renderControl(); });
-  motion.addEventListener('change', () => { paused = motion.matches; renderControl(); });
-  // Pause while reading, hovering or using a link with the keyboard.
-  setInterval(() => {
-    if (paused || document.hidden || ticker.matches(':hover') || ticker.contains(document.activeElement)) return;
-    tips[index].hidden = true;
-    index = (index + 1) % tips.length;
-    tips[index].hidden = false;
-  }, 8000);
-  renderControl();
+ };
 })();

@@ -1,0 +1,54 @@
+/* Shared presentation only. SuiteDash remains the owner of portal navigation. */
+:root{--portal-bg:#232333;--portal-surface:#2b2b3f;--portal-line:#424158;--portal-muted:#b4b0c7;--portal-accent:#c2afff;--portal-radius:12px;color-scheme:dark}
+html,body{max-width:100%;margin:0;background:var(--portal-bg);color:#f4f1fc}
+.portal-embedded,.portal-embedded body{min-height:0}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+html body:has(.dashboard-shell){background:var(--portal-bg)}
+.dashboard-shell .header{display:block;text-align:left;margin:0 0 22px}
+.dashboard-shell .header h1{font-size:30px;line-height:1.25;text-align:left}
+.dashboard-shell .header p{margin:8px 0 0;text-align:left}
+.dashboard-shell .account-block>.account{padding:14px 0;background:transparent;border-radius:0}
+.dashboard-shell .btn-primary{background:#7554d6;color:#fff}
+.dashboard-shell .publishing-tabs .btn{width:auto;white-space:nowrap;word-break:normal;overflow-wrap:normal;min-height:44px}
+.dashboard-shell .publishing-tabs{flex-wrap:wrap}
+.portal-embedded .approved-content{background:transparent;padding:20px 0;border-radius:0;border-top:1px solid var(--portal-line)}
+.portal-embedded .approved-asset{background:var(--portal-surface);border:1px solid var(--portal-line);border-radius:var(--portal-radius)}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit}
+a,button,input,select,textarea,summary{touch-action:manipulation}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--portal-accent);outline-offset:3px}
+.shell{width:100%;max-width:1440px;margin-inline:auto;padding:24px 28px 32px}
+.shell>*{min-width:0}
+.portal-embedded .shell{max-width:none;padding:16px 20px 24px}
+.portal-embedded .gate,.portal-embedded #gate{min-height:320px}
+.portal-embedded .panel{border:0;background:transparent;border-radius:0;overflow:visible}
+.portal-embedded .panel>.body{padding:0}
+.portal-embedded .panel-head{padding:0 0 16px}
+.portal-embedded .account-block{border:0;border-radius:0;background:transparent;overflow:visible}
+.portal-embedded .account-block>.account{padding:14px 0}
+.portal-embedded .metrics-panel{padding-inline:0}
+.portal-embedded .publishing-section{padding:20px 0;border-left:0;border-right:0;border-radius:0;background:transparent}
+.portal-embedded .move-card{box-shadow:none;border-radius:var(--portal-radius);background:var(--portal-surface);padding:24px}
+.portal-embedded .setup-card h2{font-size:28px;margin-top:16px;line-height:1.25}
+.publishing-section{--pub-bg:var(--portal-bg);--pub-surface:var(--portal-surface);--pub-border:var(--portal-line);--pub-muted:var(--portal-muted)}
+.account-name,.account-meta,.header p{overflow-wrap:anywhere}
+@media(max-width:760px){
+ .shell,.portal-embedded .shell{padding:16px 12px 24px}
+ .header{margin:0 0 18px}
+ .header h1{font-size:26px;line-height:1.2}
+ .dashboard-shell .header h1{font-size:25px}
+ .header p{font-size:13px;line-height:1.6}
+ .btn,button,input,select{min-height:44px}
+ .account-block,.metrics-panel,.publishing-section,.approved-content,.plan-workspace{min-width:0;max-width:100%}
+ .publishing-row,.account-identity,.account-identity>div{min-width:0}
+ .metrics-grid{grid-template-columns:1fr}
+ .metric-value{font-size:26px}
+ .goal-strip{align-items:flex-start;flex-direction:column;gap:12px;padding-block:14px}
+ .portal-embedded .move-card{padding:18px}
+ .move-card h2{font-size:24px;line-height:1.25}
+ .portal-embedded .setup-card h2{font-size:24px}
+ .move-intro{font-size:14px}
+ .publisher-dialog{max-width:calc(100vw - 16px)}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto;transition:none!important;animation:none!important}}
