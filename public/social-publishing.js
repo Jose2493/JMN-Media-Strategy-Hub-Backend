@@ -4,29 +4,41 @@
  const button=(text,fn,primary=false)=>{const b=el('button',text,`btn ${primary?'btn-primary':'btn-secondary'}`);b.type='button';b.onclick=fn;return b;};
  const labels={draft:'Draft',scheduled:'Scheduled',processing:'Processing',publishing:'Publishing',published:'Published',failed:'Needs attention',uncertain:'Check Instagram',cancelled:'Cancelled'};
  const errors={CONFIRMATION_REQUIRED:'Publication unconfirmed. Check Instagram before creating another post.',RECONNECT_REQUIRED:'Reconnect Instagram to schedule a new post.',PROCESSING_TIMEOUT:'Processing timed out. Check the file format before creating a new post.',PREPARATION_FAILED:'Couldn’t prepare this post. Check the media or reconnect Instagram.'};
- function mountContent(root,{request,onPost}){
-  let closed=false,items=[],tab='IN_REVIEW',reviewDialog=null;
+ function mountContent(root,{request,onPost,library=false,listRequest}){
+  let closed=false,items=[],tab='IN_REVIEW',reviewDialog=null,page=0,hasMore=false,loadVersion=0;
+  const filters={q:'',filter:'all',project:''};
   const section=el('section','','approved-content'),intro=el('div');
-  intro.append(el('h3','Content'),el('p','Review your latest work and prepare your next post.','publishing-subtitle'));
+  intro.append(el('h3',library?'Your media library':'Content'),el('p',library?'Every photo and reel produced together, in one place.':'Review your latest work and prepare your next post.','publishing-subtitle'));
   const tabs=el('nav','','publishing-tabs');tabs.setAttribute('aria-label','Filter client content');
   const note=el('p','Loading content…','metrics-note');note.setAttribute('role','status');
   const assets=el('div','','approved-assets');
   for(const [state,label] of [['IN_REVIEW','In Review'],['APPROVED','Approved']]){
    const b=button(label,()=>{tab=state;draw();});b.dataset.state=state;tabs.append(b);
   }
-  section.append(intro,tabs,note,assets);
+  const controls=el('form','','library-controls');
+  const search=el('input');search.type='search';search.maxLength=160;search.placeholder='Search by title';search.setAttribute('aria-label','Search by title');
+  const campaign=el('input');campaign.maxLength=160;campaign.placeholder='Project / campaign (exact name)';campaign.setAttribute('aria-label','Project or campaign');
+  const filter=el('select');filter.setAttribute('aria-label','Filter media');
+  for(const [value,label] of [['all','All'],['photos','Photos'],['reels','Reels'],['approved','Approved']]){const o=el('option',label);o.value=value;filter.append(o);}
+  const apply=button('Search',()=>{});apply.type='submit';controls.append(search,filter,campaign,apply);
+  controls.onsubmit=e=>{e.preventDefault();filters.q=search.value.trim();filters.project=campaign.value.trim();filters.filter=filter.value;page=0;load();};
+  filter.onchange=()=>{filters.q=search.value.trim();filters.project=campaign.value.trim();filters.filter=filter.value;page=0;load();};
+  const pager=el('nav','','library-pager');pager.setAttribute('aria-label','Media library pages');
+  const prev=button('Previous',()=>{page--;load();}),next=button('Next',()=>{page++;load();}),pageLabel=el('span');pager.append(prev,pageLabel,next);
+  const retry=button('Retry',()=>load());retry.hidden=true;
+  section.append(intro,library?controls:tabs,note,retry,assets);if(library){section.classList.add('media-library');section.append(pager);}
   // Place content above Publishing without changing the publishing layout.
   const previous=Array.from(root.children);root.replaceChildren(section,...previous);
   async function act(trigger,fn){trigger.disabled=true;note.textContent='';try{await fn();}catch(e){if(!closed)note.textContent=e.message;}finally{trigger.disabled=false;}}
   function draw(){
    if(closed)return;assets.replaceChildren();
    for(const b of tabs.children)b.setAttribute('aria-pressed',String(b.dataset.state===tab));
-   const visible=items.filter(a=>a.status===tab);note.textContent=visible.length?'':tab==='IN_REVIEW'?'Nothing awaiting review.':'Your approved content will appear here.';
+   const visible=library?items:items.filter(a=>a.status===tab);if(library){prev.disabled=page===0;next.disabled=!hasMore;pageLabel.textContent=`Page ${page+1}`;}note.textContent=visible.length?'':library?(filters.q||filters.project||filters.filter!=='all'?'No media matches these filters. Try another search.':'Your media library is empty. Your JMN team’s deliveries will appear here.'):tab==='IN_REVIEW'?'Nothing awaiting review.':'Your approved content will appear here.';
    for(const asset of visible){
     const card=el('article','','approved-asset'),thumb=el('img');thumb.alt=asset.title;if(asset.posterUrl||asset.previewUrl)thumb.src=asset.posterUrl||asset.previewUrl;
     const detail=el('div','','approved-asset-detail'),approved=asset.status==='APPROVED';
     detail.append(el('span',approved?'Approved':'In Review','publishing-status '+(approved?'status-published':'status-draft')),el('h4',asset.title));
-    detail.append(el('p',[asset.kind==='REELS'?'Reel':'Photo',asset.projectLabel,asset.approvedAt?new Date(asset.approvedAt).toLocaleDateString():null].filter(Boolean).join(' · '),'publishing-row-meta'));
+    detail.append(el('p',[asset.kind==='REELS'?'Reel':'Photo',asset.projectLabel,(library?asset.createdAt:asset.approvedAt)?new Date(library?asset.createdAt:asset.approvedAt).toLocaleDateString():null].filter(Boolean).join(' · '),'publishing-row-meta'));
     const actions=el('div','','content-actions');
     const review=button(approved?'Preview':'Review preview',()=>act(review,async()=>{
      const fresh=await request({command:'review',assetId:asset.id});if(closed)return;openReview(fresh);
@@ -39,7 +51,7 @@
      const post=button('Post this',()=>act(post,async()=>{
       if(!onPost)throw new Error('Connect Instagram to post this content.');
       const fresh=await request({command:'preview',assetId:asset.id});if(!closed)onPost(fresh);
-     }),true);actions.append(download,post);
+     }),true);actions.append(download);if(!library||onPost)actions.append(post);
     }
     card.append(thumb,detail,actions);assets.append(card);
    }
@@ -63,13 +75,18 @@
    }
    d.append(bar,body,footer);document.body.append(d);d.addEventListener('close',()=>{d.remove();if(reviewDialog===d)reviewDialog=null;},{once:true});d.showModal();
   }
-  async function load(){try{const data=await request();if(closed)return;items=data.assets;draw();}catch(e){if(!closed)note.textContent=e.message;}}
+  async function load(){
+   const version=++loadVersion;retry.hidden=true;note.textContent=library?'Loading your media library…':'Loading content…';assets.replaceChildren();section.setAttribute('aria-busy','true');prev.disabled=true;next.disabled=true;
+   try{const data=await (library?listRequest({...filters,page:String(page)}):request());if(closed||version!==loadVersion)return;items=data.assets;hasMore=!!data.hasMore;draw();}
+   catch(e){if(!closed&&version===loadVersion){note.textContent=e.message;retry.hidden=false;}}
+   finally{if(!closed&&version===loadVersion)section.setAttribute('aria-busy','false');}
+  }
   load();return {close(){closed=true;reviewDialog?.close();}};
  }
- window.JmnPublishing={mountContent,mount(root,{account,request,connect,approvedRequest}){
+ window.JmnPublishing={mountContent,mount(root,{account,request,connect,approvedRequest,composerOnly=false}){
   let closed=false,dialog=null,jobs=[],ready=false,timer=null,loading=false,activeTab='posts';
   const section=el('section','','publishing-section');root.append(section);
-  const content=approvedRequest?mountContent(root,{request:approvedRequest,onPost:asset=>compose(null,asset)}):null;
+  const content=approvedRequest&&!composerOnly?mountContent(root,{request:approvedRequest,onPost:asset=>compose(null,asset)}):null;
   const head=el('div','','publishing-head'),title=el('div');
   title.append(el('h3','Publishing'),el('p','Create, schedule and manage your social content.','publishing-subtitle'));
   const create=button('+ Create post',()=>compose(),true);head.append(title,create);
@@ -203,7 +220,8 @@
    }
    if(existing)request({command:'preview',id}).then(data=>{if(d.isConnected)showMedia(data.url);}).catch(()=>{uploaded=false;feedback.textContent='Choose your media file to complete this draft.';});
   }
-  refresh();timer=setInterval(()=>{if(!document.hidden)refresh();},30000);
-  return {close(){closed=true;content?.close();clearInterval(timer);dialog?.close();}};
+  if(composerOnly)section.hidden=true;
+  else {refresh();timer=setInterval(()=>{if(!document.hidden)refresh();},30000);}
+  return {compose:asset=>compose(null,asset),close(){closed=true;content?.close();clearInterval(timer);dialog?.close();}};
  }};
 })();
