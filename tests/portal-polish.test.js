@@ -46,5 +46,6 @@ test('Home display configuration rejects off-origin links and never interprets c
  const context={document,window:{},URL};vm.runInNewContext(readFileSync(new URL('../public/client-home.js',import.meta.url),'utf8'),context);
  context.window.JmnHomeDisplay({contactName:'<script>fictional</script>',designStudioVisible:'true',links:{projects:'https://attacker.example/portal/projects',media:'javascript:alert(1)',design:'https://portal.jmnmedia.com/portal/dashboard/view/1'}});
  assert.equal(heading.textContent,'Welcome back, <script>fictional</script>.');assert.equal(nodes.get('projects').children.length,0);assert.equal(nodes.get('media').children.length,0);assert.equal(nodes.get('design').hidden,true);
+ context.window.JmnHomeDisplay({contactName:'  Alex Rivera  '});assert.equal(heading.textContent,'Welcome back, Alex.');
  context.window.JmnHomeDisplay({designStudioVisible:true,links:{design:'https://portal.jmnmedia.com/portal/dashboard/view/1'}});assert.equal(nodes.get('design').hidden,false);assert.equal(nodes.get('design').children[0].target,'_top');
 });

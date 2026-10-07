@@ -1,0 +1,39 @@
+{
+  "target": "aladurkcrzyczjtpdpjc",
+  "scope": "Local real handler + signed QA-only sessions + real staging Postgres; not hosted portal acceptance",
+  "checks": {
+    "AI failure persists safe fallback": "PASS",
+    "Persisted unanswered state": "PASS",
+    "Same-day payload stability": "PASS",
+    "Cross-company browser target rejected": "PASS",
+    "B cannot answer A-only pulse": "PASS",
+    "Invalid option rejected": "PASS",
+    "Browser company override rejected": "PASS",
+    "Sparse fallback persisted without model": "PASS",
+    "Valid answer persisted": "PASS",
+    "Repeated answer first-wins": "PASS",
+    "New service reload preserves answer": "PASS",
+    "Dated Strategist context source": "PASS",
+    "Answer audit uses session contact": "PASS",
+    "Database rejects incomplete answer": "PASS",
+    "Database rejects answer predating creation": "PASS",
+    "Existing daily content never replaced": "PASS",
+    "Company B read remains unanswered": "PASS"
+  },
+  "records": [
+    {
+      "company_id": "7811dc6c-ca9b-4883-a435-7a4481e1bbf5",
+      "pulse_date": "2026-10-06",
+      "answer_id": "retention",
+      "answered_by": "028af363-6695-4f7c-9d34-d6fa2fc39f0b",
+      "answered_at": "2026-10-07T03:44:32.496+00:00"
+    },
+    {
+      "company_id": "ac08c61d-616f-43bf-9095-91aae7afaf46",
+      "pulse_date": "2026-10-06",
+      "answer_id": null,
+      "answered_by": null,
+      "answered_at": null
+    }
+  ]
+}

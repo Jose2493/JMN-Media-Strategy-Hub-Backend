@@ -8,7 +8,7 @@
  };
  window.JmnHomeDisplay=display=>{
   if(!display||typeof display!=='object')return;
-  const name=typeof display.contactName==='string'?display.contactName.trim().slice(0,80):'';
+  const name=typeof display.contactName==='string'?display.contactName.trim().slice(0,80).split(/\s+/)[0]:'';
   document.getElementById('welcome-title').textContent=name?'Welcome back, '+name+'.':'Welcome back.';
   for(const [key,node] of slots){
    const link=safeLink(display.links?.[key]);

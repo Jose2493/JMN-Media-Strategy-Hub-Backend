@@ -4,6 +4,7 @@ import { formatCampaignContext } from '../lib/strategistContext.js';
 import { getCompanyMemory, formatMemoryForPrompt } from '../lib/memory.js';
 import { createConversation, getConversation, addMessage } from '../lib/repositories.js';
 import { maybeUpdateMemory } from '../lib/memoryExtraction.js';
+import { pulseRepository, formatPulseContext } from '../lib/brandPulse.js';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
@@ -37,6 +38,7 @@ export function createChatHandler({
   saveMessage = addMessage, getMetadata = (...args) => strategistStore.metadata(...args),
   getMemory = getCompanyMemory, formatMemory = formatMemoryForPrompt,
   updateMemory = maybeUpdateMemory, db = supabase, providerFetch = globalThis.fetch,
+  getPulse = companyId => pulseRepository.recent(companyId),
 } = {}) {
 return async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -85,6 +87,9 @@ return async function handler(req, res) {
     const campaignContext = formatCampaignContext(metadata);
     const memory = await getMemory(companyId);
     const memoryContext = formatMemory(memory);
+    // A missing/unapplied daily-state table must not break existing Strategy Sessions.
+    let pulseContext='';
+    try { pulseContext=formatPulseContext((await getPulse(companyId))[0]); } catch { /* optional context unavailable */ }
 
     const systemPrompt = `You are JMN Media's AI Strategist, working with Jose and his team. Never impersonate Jose or claim to be human. You're a strategic director, not a salesperson.
 
@@ -106,6 +111,7 @@ APPROVED PACKAGES (exact names and prices, do not alter):
 
 PRICING FLOW: diagnose first, recommend one option with reasoning, then offer to compare the rest. Never dump the full list unprompted.
 ${memoryContext}
+${pulseContext}
 ${campaignContext}`;
 
     const { data: recentMessages, error: historyError } = await db
