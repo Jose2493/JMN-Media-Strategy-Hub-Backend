@@ -66,3 +66,24 @@ test('view hides unauthorized design, renders untrusted names as text, and QA li
   renderCockpit(root,{...empty,design:true},{qa:true});assert.ok(flatten(root).some(n=>n.textContent==='Design Studio ↗'));assert.equal(root.attrs['aria-busy'],'false');
  }finally{globalThis.document=previous;}
 });
+
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+const authSource=readFileSync(new URL('../public/client-cockpit.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'');
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+function authHarness(fetch){
+ const root=new Element('main'),events={},renders=[],history=[];
+ const context={document:{getElementById:()=>root,createElement:t=>new Element(t)},location:{hash:'#token=QA%2Bonly%3D',pathname:'/client-cockpit.html',search:'',origin:'https://preview.example'},history:{replaceState(...v){history.push(v);}},window:{addEventListener(k,fn){events[k]=fn;}},ResizeObserver:class{observe(){}},renderCockpit:(...args)=>renders.push(args),fetch,Date,URL,setTimeout:fn=>{events.expire=fn;return 1;},clearTimeout(){}};
+ context.window.parent=context.window;vm.runInNewContext(authSource,context);return {root,events,renders,history};
+}
+test('bootstrap preserves Base64 plus and clears fragment; expiry clears private UI',async()=>{
+ const calls=[];const h=authHarness(async(url,options)=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.includes('exchange')?{sessionToken:'fictional-session',expiresInSeconds:1800}:empty};});
+ await tick();assert.equal(JSON.parse(calls[0].options.body).bootstrapToken,'QA+only=');assert.equal(h.history[0][2],'/client-cockpit.html');assert.equal(calls[1].options.headers.Authorization,'Bearer fictional-session');assert.equal(h.renders.length,1);
+ h.events.expire();assert.match(h.root.children[0].textContent,/Reopen Home/);
+});
+test('late exchange cannot restore a session after leaving the page',async()=>{
+ let finish;const h=authHarness(()=>new Promise(resolve=>{finish=resolve;}));h.events.pagehide();finish({ok:true,json:async()=>({sessionToken:'fictional-session',expiresInSeconds:1800})});await tick();assert.equal(h.renders.length,0);assert.match(h.root.children[0].textContent,/Reopen Home/);
+});
+test('late summary cannot restore private content after expiry',async()=>{
+ let finish;const h=authHarness(async url=>url.includes('exchange')?{ok:true,json:async()=>({sessionToken:'fictional-session',expiresInSeconds:1800})}:new Promise(resolve=>{finish=resolve;}));await tick();h.events.expire();finish({ok:true,status:200,json:async()=>empty});await tick();assert.equal(h.renders.length,0);assert.match(h.root.children[0].textContent,/Reopen Home/);
+});

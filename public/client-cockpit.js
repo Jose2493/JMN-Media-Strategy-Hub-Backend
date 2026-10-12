@@ -1,6 +1,6 @@
 import {renderCockpit} from './client-cockpit-view.js';
 const root=document.getElementById('cockpit');
-let session=null,bootstrap=null,expires=0,timer;
+let session=null,bootstrap=null,expires=0,timer,active=true;
 function gate(message='Reopen Home from your client portal to continue.') {
   session=null;bootstrap=null;clearTimeout(timer);root.replaceChildren();root.setAttribute('aria-busy','false');const p=document.createElement('p');p.setAttribute('role','status');p.textContent=message;root.append(p);
 }
@@ -25,7 +25,7 @@ async function load(){
   }
 }
 root.addEventListener('cockpit:retry',load);
-window.addEventListener('pagehide',()=>gate());
+window.addEventListener('pagehide',()=>{active=false;gate();});
 async function start(){
   const hash=location.hash;
   if(hash)history.replaceState(null,'',location.pathname+location.search);
@@ -35,6 +35,7 @@ async function start(){
     const response=await fetch('/api/session-exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bootstrapToken:bootstrap}),cache:'no-store'});
     if(!response.ok)return gate();
     const data=await response.json();
+    if(!active)return;
     if(typeof data.sessionToken!=='string'||!data.sessionToken||!Number.isSafeInteger(data.expiresInSeconds)||data.expiresInSeconds<1||data.expiresInSeconds>3600)return gate();
     session=data.sessionToken;expires=Date.now()+data.expiresInSeconds*1000;timer=setTimeout(gate,data.expiresInSeconds*1000);await load();
   }catch{gate();}
