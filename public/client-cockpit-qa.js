@@ -11,3 +11,8 @@ function render(){
  renderCockpit(root,data,{qa:true});
 }
 document.getElementById('scenario').onchange=render;document.getElementById('width').onchange=e=>root.style.width=e.target.value;root.addEventListener('cockpit:retry',render);render();
+
+// Fictional iframe QA only; same sizing message consumed by the real parent helper.
+new ResizeObserver(()=>{
+ if(window.parent!==window)window.parent.postMessage({type:'jmn:cockpit-height',height:Math.ceil(document.body.getBoundingClientRect().height)},location.origin);
+}).observe(document.body);

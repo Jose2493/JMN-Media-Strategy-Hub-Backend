@@ -87,3 +87,22 @@ test('late exchange cannot restore a session after leaving the page',async()=>{
 test('late summary cannot restore private content after expiry',async()=>{
  let finish;const h=authHarness(async url=>url.includes('exchange')?{ok:true,json:async()=>({sessionToken:'fictional-session',expiresInSeconds:1800})}:new Promise(resolve=>{finish=resolve;}));await tick();h.events.expire();finish({ok:true,status:200,json:async()=>empty});await tick();assert.equal(h.renders.length,0);assert.match(h.root.children[0].textContent,/Reopen Home/);
 });
+
+import frameQa from '../api/qa/client-cockpit-frame.js';
+test('iframe QA remains preview-only',()=>{
+ const old=process.env.VERCEL_ENV;process.env.VERCEL_ENV='production';try{const res=response();frameQa({method:'GET',headers:{},url:'/api/qa/client-cockpit-frame'},res);assert.equal(res.statusCode,404);}finally{if(old===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=old;}
+});
+test('parent sizing accepts only its own iframe origin/source and valid heights, including shrink',()=>{
+ let receive;const frame={src:'https://preview.example/api/qa/client-cockpit',contentWindow:{},style:{}};
+ vm.runInNewContext(readFileSync(new URL('../public/client-cockpit-embed.js',import.meta.url),'utf8'),{URL,document:{getElementById:()=>frame},window:{addEventListener:(type,fn)=>receive=fn}});
+ const send=(height,origin='https://preview.example',source=frame.contentWindow)=>receive({origin,source,data:{type:'jmn:cockpit-height',height}});
+ send(700,'https://evil.example');send(700,'https://preview.example',{});send(-1);send('700');send(10001);assert.equal(frame.style.height,undefined);
+ send(1200);assert.equal(frame.style.height,'1200px');send(350);assert.equal(frame.style.height,'350px');
+});
+test('attention links cover whole row and retain navigation; Strategy remains the sole primary action',()=>{
+ const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t)};
+ try{const root=new Element('main');renderCockpit(root,{...empty,review:2,drafts:1,design:true});const nodes=flatten(root);assert.equal(nodes.filter(n=>n.className==='action primary').length,1);assert.equal(nodes.find(n=>n.className==='action primary').textContent,'Strategy Session ↗');
+ const rows=nodes.filter(n=>n.tag==='li');assert.equal(rows.length,2);for(const row of rows){assert.equal(row.children.length,1);assert.equal(row.children[0].tag,'a');assert.match(row.children[0].href,/174976$/);}
+ assert.ok(nodes.some(n=>n.textContent==='Today’s move'));assert.ok(nodes.some(n=>n.textContent==='Open Social Center →'));
+ }finally{globalThis.document=previous;}
+});
