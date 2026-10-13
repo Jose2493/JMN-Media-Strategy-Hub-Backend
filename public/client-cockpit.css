@@ -76,3 +76,5 @@
  .stage .stage-top{gap:6px}
 }
 @media(forced-colors:active){.workspace-avatar,.channel-status{border-color:CanvasText}.state-marker{background:CanvasText}.stage[data-state=unknown] .state-marker{border-color:CanvasText}}
+/* Keep the fictional narrow iframe centered without altering production sizing. */
+body:has(#frame-width)>#jmn-client-cockpit{max-width:100%;margin-inline:auto}
