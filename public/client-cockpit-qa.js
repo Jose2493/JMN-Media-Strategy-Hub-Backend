@@ -6,6 +6,9 @@ function render(){
  if(scenario==='Empty')Object.assign(data,{review:0,approved:0,drafts:0,scheduled:0,published:0});
  if(scenario==='Partial error')Object.assign(data,{review:null,instagram:null,design:null});
  if(scenario==='No design access')data.design=false;
+ if(scenario==='Disconnected')data.instagram={connected:0,attention:0,total:0};
+ if(scenario==='Missing company')data.company=null;
+ if(scenario==='Long name and counts')Object.assign(data,{company:{business_name:'Northline Coffee & Community — Independent Roasters'},review:1234,approved:5678,scheduled:9012,published:34567});
  if(scenario==='Instagram issue')data.instagram={connected:0,attention:1,total:1};
  if(['Loading','Expired session'].includes(scenario)){root.replaceChildren();const p=document.createElement('p');p.setAttribute('role','status');p.textContent=scenario==='Loading'?'Loading your workspace…':'Reopen Home from your client portal to continue.';root.append(p);root.setAttribute('aria-busy',String(scenario==='Loading'));return;}
  renderCockpit(root,data,{qa:true});

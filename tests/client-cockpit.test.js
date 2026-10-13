@@ -47,7 +47,7 @@ test('QA is inaccessible in production and refuses credentials or query flags',(
  }finally{if(env===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=env;if(target===undefined)delete process.env.VERCEL_TARGET_ENV;else process.env.VERCEL_TARGET_ENV=target;}
 });
 
-import {renderCockpit} from '../public/client-cockpit-view.js';
+import {renderCockpit,workspaceInitials} from '../public/client-cockpit-view.js';
 class Element {
  constructor(tag){this.tag=tag;this.children=[];this.attrs={};this.listeners={};this.textContent='';}
  append(...nodes){this.children.push(...nodes);}
@@ -57,7 +57,7 @@ class Element {
 }
 const flatten=n=>[n,...n.children.flatMap(flatten)];
 test('view hides unauthorized design, renders untrusted names as text, and QA links cannot navigate',()=>{
- const previous=globalThis.document;globalThis.document={createElement:tag=>new Element(tag)};
+ const previous=globalThis.document;globalThis.document={createElement:tag=>new Element(tag),createElementNS:(_,tag)=>new Element(tag)};
  try{
   const root=new Element('main');renderCockpit(root,{...empty,company:{business_name:'<img src=x onerror=alert(1)>'}},{qa:true});
   assert.equal(flatten(root).some(n=>n.tag==='img'),false);assert.ok(flatten(root).some(n=>n.textContent.startsWith('<img')));
@@ -100,9 +100,47 @@ test('parent sizing accepts only its own iframe origin/source and valid heights,
  send(1200);assert.equal(frame.style.height,'1200px');send(350);assert.equal(frame.style.height,'350px');
 });
 test('attention links cover whole row and retain navigation; Strategy remains the sole primary action',()=>{
- const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t)};
+ const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t),createElementNS:(_,tag)=>new Element(tag)};
  try{const root=new Element('main');renderCockpit(root,{...empty,review:2,drafts:1,design:true});const nodes=flatten(root);assert.equal(nodes.filter(n=>n.className==='action primary').length,1);assert.equal(nodes.find(n=>n.className==='action primary').textContent,'Strategy Session ↗');
  const rows=nodes.filter(n=>n.tag==='li');assert.equal(rows.length,2);for(const row of rows){assert.equal(row.children.length,1);assert.equal(row.children[0].tag,'a');assert.match(row.children[0].href,/174976$/);}
  assert.ok(nodes.some(n=>n.textContent==='Today’s move'));assert.ok(nodes.some(n=>n.textContent==='Open Social Center →'));
+ }finally{globalThis.document=previous;}
+});
+
+test('workspace initials handle missing, Unicode and long company names without interpreting markup',()=>{
+ assert.equal(workspaceInitials(null),'JM');assert.equal(workspaceInitials('   '),'JM');
+ assert.equal(workspaceInitials('Northline Studio'),'NS');assert.equal(workspaceInitials('café'),'CA');
+ assert.equal(workspaceInitials('東京珈琲'),'東京');assert.equal(workspaceInitials('Élan & Co'),'ÉC');
+ assert.equal(workspaceInitials('☕'),'JM');
+});
+test('visual states distinguish unavailable from zero, preserve exact counts, and add no media sources',()=>{
+ const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t)};
+ try{
+  const data={...empty,review:null,approved:0,scheduled:7,published:12345,instagram:null,company:{business_name:'Northline Studio',logo_url:'https://untrusted.example/image'}};
+  const root=new Element('main');renderCockpit(root,data);const nodes=flatten(root),stages=nodes.filter(n=>n.className==='stage');
+  assert.deepEqual(stages.map(n=>n.attrs['data-state']),['unknown','empty','active','active']);
+  assert.deepEqual(nodes.filter(n=>n.className==='stage-count').map(n=>n.textContent),['—','0','7','12345']);
+  assert.match(stages[0].attrs['aria-label'],/unavailable/);assert.match(stages[1].attrs['aria-label'],/Approved: 0/);
+  assert.ok(nodes.some(n=>n.className==='summary-item channel-status unknown'));
+  assert.ok(nodes.some(n=>n.textContent===cockpitModel(data).pulse));
+  assert.equal(nodes.some(n=>['img','image'].includes(n.tag)),false);
+  assert.ok(nodes.filter(n=>n.tag==='svg').every(n=>n.attrs['aria-hidden']==='true'&&n.attrs.focusable==='false'));
+ }finally{globalThis.document=previous;}
+});
+test('channel cues never imply a healthy connection for disconnected, failed or unavailable accounts',()=>{
+ const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t)};
+ try{
+  for(const [instagram,state,label] of [[null,'unknown','Instagram status unavailable'],[{connected:0,total:0,attention:0},'offline','Instagram not connected'],[{connected:1,total:2,attention:1},'attention','Instagram needs attention'],[{connected:1,total:1,attention:0},'connected','Instagram connected']]){
+   const root=new Element('main');renderCockpit(root,{...empty,instagram});const nodes=flatten(root);
+   const cue=nodes.find(n=>n.className===`summary-item channel-status ${state}`);assert.ok(cue);assert.ok(flatten(cue).some(n=>n.textContent===label));
+  }
+ }finally{globalThis.document=previous;}
+});
+test('visual enrichment preserves authorized Design navigation and existing pipeline destinations',()=>{
+ const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t)};
+ try{
+  let navigated=0;const root=new Element('main');renderCockpit(root,{...empty,design:true},{navigateDesign:()=>navigated++});
+  const nodes=flatten(root);nodes.find(n=>n.textContent==='Design Studio ↗').listeners.click();assert.equal(navigated,1);
+  const stages=nodes.filter(n=>n.className==='stage');assert.equal(stages.length,4);assert.ok(stages.every(n=>n.href==='https://portal.jmnmedia.com/portal/dashboard/view/174976'&&n.target==='_top'));
  }finally{globalThis.document=previous;}
 });

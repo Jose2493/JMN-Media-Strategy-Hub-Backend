@@ -19,3 +19,60 @@
 @media(prefers-reduced-motion:reduce){.attention li a{transition:none}}
 /* The QA shell exercises the same full-width parent sizing helper. */
 #jmn-client-cockpit{display:block;width:100%;height:180px;border:0}
+
+/* Phase 2: functional identity and state visuals. No image sources or theme data. */
+.icon{width:18px;height:18px;flex:none;display:block}
+.workspace-header{display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:14px;row-gap:12px;align-items:center}
+.workspace-avatar{display:grid;place-items:center;align-self:start;width:52px;height:52px;margin-top:3px;border:1px solid #716983;border-radius:14px;background:#3c394f;color:#e3d8ff;font-size:18px;font-weight:650;letter-spacing:-.04em}
+.workspace-identity{min-width:0}
+.workspace-header .eyebrow{margin-bottom:4px}
+.workspace-header .summary{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;margin:0;line-height:1.5}
+.summary-item{display:inline-flex;align-items:center;gap:7px;min-width:0;font-size:12px}
+.summary-item .icon{width:14px;height:14px;color:#b1acc6}
+.channel-status{padding:4px 9px;border:1px solid var(--line);border-radius:6px}
+.channel-status.connected .icon{color:#a8d9c5}
+.channel-status.attention .icon{color:#edcd9a}
+.channel-status.unknown .icon,.channel-status.offline .icon{color:var(--muted)}
+.pulse-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;max-width:680px}
+.pulse-heading>div{min-width:0}
+.pulse-direction{width:28px;height:28px;color:var(--accent);margin-bottom:10px}
+.pulse .pulse-copy{max-width:640px}
+.pulse .eyebrow{font-weight:750}
+.attention .attention-link{gap:12px}
+.attention-marker{color:#edcd9a;width:18px;height:18px}
+.attention-copy{flex:1;min-width:0}
+.row-arrow{color:var(--muted);width:16px;height:16px}
+.attention-link:hover .row-arrow,.attention-link:focus-visible .row-arrow{color:var(--accent)}
+.stage{--state-tone:var(--accent);display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;padding-top:16px;padding-bottom:16px;text-decoration:none!important}
+.stage[data-stage=review]{--state-tone:#edcd9a}
+.stage[data-stage=approved]{--state-tone:#a8d9c5}
+.stage[data-stage=published]{--state-tone:#a8c8dc}
+.stage .stage-top{display:flex;align-items:center;gap:8px;min-height:26px}
+.stage-top .icon{width:16px;height:16px;color:var(--state-tone)}
+.stage strong{font-size:38px;line-height:1.1;font-weight:600;letter-spacing:-.04em;font-variant-numeric:tabular-nums;margin:0;max-width:100%}
+.stage .stage-label{font-size:13px;color:#d5d6e3}
+/* A presence marker, not a percentage: assets and publishing jobs are different units. */
+.state-marker{display:block;width:20px;height:3px;background:var(--state-tone);border-radius:2px;margin-top:2px}
+.stage[data-state=empty] .state-marker{background:#74788e}
+.stage[data-state=unknown] .state-marker{background:none;border-top:2px dotted var(--muted);border-radius:0}
+.stage[data-state=empty] .stage-count,.stage[data-state=unknown] .stage-count{color:var(--muted)}
+.stage:hover .stage-label,.stage:focus-visible .stage-label{text-decoration:underline;text-underline-offset:4px}
+.stage:hover{background:rgba(212,194,255,.035)}
+.cockpit{max-width:min(1120px,100%)}
+@media(max-width:560px){
+ .workspace-header{grid-template-columns:44px minmax(0,1fr);gap:12px}
+ .workspace-avatar{width:44px;height:44px;font-size:16px;border-radius:12px}
+ .workspace-header h1{font-size:25px}
+ .workspace-header .summary{gap:8px 14px}
+ .stage strong{font-size:34px}
+ .stage .stage-top{gap:6px}
+}
+@container(max-width:500px){
+ .workspace-header{grid-template-columns:44px minmax(0,1fr);gap:12px}
+ .workspace-avatar{width:44px;height:44px;font-size:16px;border-radius:12px}
+ .workspace-header h1{font-size:25px}
+ .workspace-header .summary{gap:8px 14px}
+ .stage strong{font-size:34px}
+ .stage .stage-top{gap:6px}
+}
+@media(forced-colors:active){.workspace-avatar,.channel-status{border-color:CanvasText}.state-marker{background:CanvasText}.stage[data-state=unknown] .state-marker{border-color:CanvasText}}
