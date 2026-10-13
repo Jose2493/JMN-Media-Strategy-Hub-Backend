@@ -1,0 +1,15 @@
+import {cockpitModel,routes} from './client-cockpit-model.js';
+const node = (tag,text,className) => {const n=document.createElement(tag);if(text)n.textContent=text;if(className)n.className=className;return n;};
+export function renderCockpit(root,data,{navigateDesign,qa=false}={}) {
+  const model=cockpitModel(data);
+  const link=(label,route,className='text-link')=>{const a=node('a',label,className);a.href=routes[route];a.target='_top';if(qa)a.addEventListener('click',e=>{e.preventDefault();feedback.textContent=`Preview only: opens ${route==='social'?'Social Center':'Strategy Session'}. No data changed.`;});return a;};
+  root.replaceChildren();root.setAttribute('aria-busy','false');
+  const header=node('header');header.append(node('p','Your workspace','eyebrow'),node('h1',model.name),node('p','Here’s where things stand.','muted'),node('p',model.status,'summary'));root.append(header);
+  const quick=node('nav',null,'quick');quick.setAttribute('aria-label','Quick actions');quick.append(link('Strategy Session ↗','strategy','action primary'),link('Social Center ↗','social','action'));
+  if(data.design===true){const b=node('button','Design Studio ↗','action');b.type='button';b.addEventListener('click',()=>qa?feedback.textContent='Preview only: opens authorized Design Studio.':navigateDesign?.());quick.append(b);}root.append(quick);
+  const feedback=node('p',null,'notice');feedback.setAttribute('role','status');root.append(feedback);
+  if(model.incomplete){const warning=node('div',null,'notice');warning.append(node('span','Some workspace information is unavailable. '));const retry=node('button','Retry','action');retry.type='button';retry.onclick=()=>root.dispatchEvent(new Event('cockpit:retry'));warning.append(retry);root.append(warning);}
+  const pulse=node('section',null,'pulse');pulse.append(node('p','Today’s move','eyebrow'),node('h2','Daily Pulse — by JMN'),node('p',model.pulse,'pulse-copy'));const actions=node('div',null,'actions');actions.append(link('Ask Strategist ↗','strategy'),link('Turn into action →',model.action));pulse.append(actions);root.append(pulse);
+  if(model.attention.length){const section=node('section',null,'attention');section.append(node('h2','Needs Your Attention'));const list=node('ul');for(const item of model.attention){const li=node('li'),a=link('',item.route,'');const text=node('span');text.append(node('strong',item.title),node('span',item.detail,'detail'));a.append(text,node('span','→'));li.append(a);list.append(li);}section.append(list);root.append(section);}
+  const pipeline=node('section',null,'pipeline');pipeline.append(node('h2','Content Pipeline'));const stages=node('div',null,'stages');for(const [label,count] of model.pipeline){const a=link('','social','stage');a.setAttribute('aria-label',`${label}: ${count===null?'unavailable':count}. Open Social Center`);a.append(node('strong',count===null?'—':String(count)),node('span',label));stages.append(a);}pipeline.append(stages,link('Open Social Center →','social','foot pipeline-link'));root.append(pipeline);
+}
