@@ -69,12 +69,12 @@ test('view hides unauthorized design, renders untrusted names as text, and QA li
 
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-const authSource=readFileSync(new URL('../public/client-cockpit.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'');
+const authSource=readFileSync(new URL('../public/client-cockpit.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function authHarness(fetch){
  const root=new Element('main'),events={},renders=[],history=[];
  const context={document:{getElementById:()=>root,createElement:t=>new Element(t)},location:{hash:'#token=QA%2Bonly%3D',pathname:'/client-cockpit.html',search:'',origin:'https://preview.example'},history:{replaceState(...v){history.push(v);}},window:{addEventListener(k,fn){events[k]=fn;}},ResizeObserver:class{observe(){}},renderCockpit:(...args)=>renders.push(args),fetch,Date,URL,setTimeout:fn=>{events.expire=fn;return 1;},clearTimeout(){}};
- context.window.parent=context.window;vm.runInNewContext(authSource,context);return {root,events,renders,history};
+ context.observeCockpitHeight=()=>{};context.window.parent=context.window;vm.runInNewContext(authSource,context);return {root,events,renders,history};
 }
 test('bootstrap preserves Base64 plus and clears fragment; expiry clears private UI',async()=>{
  const calls=[];const h=authHarness(async(url,options)=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.includes('exchange')?{sessionToken:'fictional-session',expiresInSeconds:1800}:empty};});
@@ -93,11 +93,29 @@ test('iframe QA remains preview-only',()=>{
  const old=process.env.VERCEL_ENV;process.env.VERCEL_ENV='production';try{const res=response();frameQa({method:'GET',headers:{},url:'/api/qa/client-cockpit-frame'},res);assert.equal(res.statusCode,404);}finally{if(old===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=old;}
 });
 test('parent sizing accepts only its own iframe origin/source and valid heights, including shrink',()=>{
- let receive;const frame={src:'https://preview.example/api/qa/client-cockpit',contentWindow:{},style:{}};
- vm.runInNewContext(readFileSync(new URL('../public/client-cockpit-embed.js',import.meta.url),'utf8'),{URL,document:{getElementById:()=>frame},window:{addEventListener:(type,fn)=>receive=fn}});
+ let receive;const requests=[],events={};const frame={src:'https://preview.example/api/qa/client-cockpit',contentWindow:{postMessage:(...args)=>requests.push(args)},style:{},setAttribute(){},addEventListener:(type,fn)=>events[type]=fn};
+ vm.runInNewContext(readFileSync(new URL('../public/client-cockpit-embed.js',import.meta.url),'utf8'),{URL,document:{getElementById:()=>frame},window:{addEventListener:(type,fn)=>{if(type==='message')receive=fn;else events[type]=fn;}}});
  const send=(height,origin='https://preview.example',source=frame.contentWindow)=>receive({origin,source,data:{type:'jmn:cockpit-height',height}});
  send(700,'https://evil.example');send(700,'https://preview.example',{});send(-1);send('700');send(10001);assert.equal(frame.style.height,undefined);
  send(1200);assert.equal(frame.style.height,'1200px');send(350);assert.equal(frame.style.height,'350px');
+ assert.equal(requests.length,1);events.load();events.resize();assert.equal(requests.length,3);assert.equal(requests[0][1],'https://preview.example');
+});
+
+test('height reporting includes document content and remeasures after reflow, late parent setup and shrink',()=>{
+ let height=1250,queued;const events={},sent=[],observed=[];
+ const root={getBoundingClientRect:()=>({top:0,bottom:height}),get scrollHeight(){return height;}};
+ const parent={postMessage:(...args)=>sent.push(args)};
+ const window={parent,scrollY:0,requestAnimationFrame:fn=>{queued=fn;},addEventListener:(k,fn)=>events[k]=fn,visualViewport:{addEventListener:(k,fn)=>events['visual:'+k]=fn}};
+ const body={getBoundingClientRect:()=>({bottom:height})};
+ const context={window,document:{body},ResizeObserver:class{constructor(fn){events.observer=fn;}observe(node){observed.push(node);}}};
+ vm.runInNewContext(readFileSync(new URL('../public/client-cockpit-height.js',import.meta.url),'utf8').replace('export function','function')+'\nobserveCockpitHeight(root,["https://portal.jmnmedia.com"]);',{...context,root});
+ queued();assert.equal(sent.at(-1)[0].height,1250);assert.deepEqual(observed,[root,body]);
+ height=1600;events.resize();queued();assert.equal(sent.at(-1)[0].height,1600);
+ height=700;events.observer();queued();assert.equal(sent.at(-1)[0].height,700);
+ events['visual:resize']();queued();assert.equal(sent.at(-1)[0].height,700);
+ queued=null;events.message({source:{},origin:'https://portal.jmnmedia.com',data:{type:'jmn:cockpit-measure'}});assert.equal(queued,null);
+ events.message({source:parent,origin:'https://evil.example',data:{type:'jmn:cockpit-measure'}});assert.equal(queued,null);
+ events.message({source:parent,origin:'https://portal.jmnmedia.com',data:{type:'jmn:cockpit-measure'}});assert.equal(typeof queued,'function');queued();assert.equal(sent.at(-1)[1],'https://portal.jmnmedia.com');
 });
 test('attention links cover whole row and retain navigation; Strategy remains the sole primary action',()=>{
  const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t),createElementNS:(_,tag)=>new Element(tag)};

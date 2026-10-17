@@ -60,6 +60,7 @@
 .stage:hover{background:rgba(212,194,255,.035)}
 .cockpit{max-width:min(1120px,100%)}
 @media(max-width:560px){
+ .cockpit{padding-inline:12px}
  .workspace-header{grid-template-columns:44px minmax(0,1fr);gap:12px}
  .workspace-avatar{width:44px;height:44px;font-size:16px;border-radius:12px}
  .workspace-header h1{font-size:25px}

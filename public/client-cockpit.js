@@ -1,4 +1,5 @@
 import {renderCockpit} from './client-cockpit-view.js';
+import {observeCockpitHeight} from './client-cockpit-height.js';
 const root=document.getElementById('cockpit');
 let session=null,bootstrap=null,expires=0,timer,active=true;
 function gate(message='Reopen Home from your client portal to continue.') {
@@ -41,10 +42,4 @@ async function start(){
   }catch{gate();}
 }
 start();
-// Only layout metadata is sent to the known SuiteDash hosts; no identity or tokens.
-const publishHeight=()=>{
-  if(window.parent===window)return;
-  const height=Math.ceil(root.getBoundingClientRect().height);
-  for(const origin of ['https://portal.jmnmedia.com','https://app.suitedash.com'])window.parent.postMessage({type:'jmn:cockpit-height',height},origin);
-};
-new ResizeObserver(publishHeight).observe(root);
+observeCockpitHeight(root, ['https://portal.jmnmedia.com','https://app.suitedash.com']);

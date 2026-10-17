@@ -24,3 +24,15 @@ Authenticated staging acceptance must use staging credentials and confirm compan
 Keep the current Home page until acceptance. A future approved integration must provide its existing bootstrap to the new page using the standard fragment pattern. Use a full-width, borderless iframe with id `jmn-client-cockpit`, not a fixed-height inner scrolling panel. Load `client-cockpit-embed.js` in the parent after the iframe. It validates both the iframe origin and window source before resizing. The child sends only height metadata to the two known SuiteDash origins. Verify this in the actual portal before production activation. Do not paste bootstrap values into documentation or commits.
 
 Rollback: retain or restore the original Home iframe URL; all existing pages and contracts remain intact.
+
+## Mobile iframe integration
+
+The temporary SuiteDash QA embed previously had `height:900px` and `scrolling="no"`, with no parent message listener. A 2x2 pipeline increases the natural child height and was clipped. Child CSS cannot resize a cross-origin parent iframe or remove SuiteDash's outer gutters.
+
+Install both `/client-cockpit-embed.css` and `/client-cockpit-embed.js` from the same deployment as the dedicated `jmn-client-cockpit` iframe, using SuiteDash's page HTML/custom code support. The stylesheet only removes the containing page/block's extra horizontal padding on narrow screens; desktop is unchanged. Preserve 12px internal child padding. Do not use a fixed height as the final sizing mechanism.
+
+SuiteDash Text Blocks strip script/link tags. Use the individual QA page's **Styling Options → Custom CSS/JS** fields: put the scoped stylesheet in Custom CSS, and load the parent helper in Custom JS once the dedicated iframe exists (the page's content can be inserted asynchronously). Keep the iframe itself in the Text Block, without a fixed height. Do not put this integration into portal-wide settings.
+
+The parent asks for measurements after load and viewport changes, including when installed after the child's first render. The child shares its natural body/content extent on initial render, ResizeObserver notifications, resize, visual viewport resize, font readiness and the validated parent request. Natural-content measurements permit both growth and shrink, without using the iframe viewport as a height floor. Messages contain only height metadata and validate the existing trusted origin/source boundaries.
+
+Live QA on temporary page 176804 verified authenticated staging content at 390px and 320px: two pipeline columns, all four states within the expanded iframe, no horizontal overflow, and the outer portal scroll reaches the final row. Resizing to desktop restores four columns and shrinks the frame. The temporary page uses page-scoped CSS/JS; live Home is unchanged.
