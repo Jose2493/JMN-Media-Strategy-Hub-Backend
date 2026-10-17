@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const libraryMode = document.body.dataset.mediaLibrary === 'true';
   const MESSAGE_TYPE = 'jmn:social-connect';
   const PLATFORM = 'instagram';
   const ALLOWED_RESULTS = new Set(['connected', 'declined', 'error']);
@@ -182,6 +183,29 @@
             const data=await response.json();if(!response.ok)throw new Error(data.error||'Approved content is unavailable.');
             if(!sessionToken)throw new Error('Session expired.');return data;
     };
+    if(libraryMode){
+      emptyStateEl.hidden=true;
+      const active=accounts.filter(a=>a?.status==='active');
+      let selected=active[0],composer=null;
+      const picker=document.createElement('select');picker.setAttribute('aria-label','Instagram account for posting');
+      for(const a of active){const o=document.createElement('option');o.value=a.id;o.textContent='@'+a.username;picker.append(o);}
+      if(active.length)accountsEl.append(picker);
+      const root=document.createElement('div'),composerRoot=document.createElement('div');accountsEl.append(root,composerRoot);
+      async function libraryRequest(url,command){
+        if(!sessionToken)throw new Error('Reopen Media & Deliverables from your portal.');
+        const response=await fetch(url,{method:command?'POST':'GET',cache:'no-store',headers:{Authorization:`Bearer ${sessionToken}`,...(command?{'Content-Type':'application/json'}:{})},body:command?JSON.stringify(command):undefined});
+        if(response.status===401){denyAccess();throw new Error('Session expired. Reopen Media & Deliverables from your portal.');}
+        const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to load media. Please retry.');
+        if(!sessionToken)throw new Error('Session expired.');return data;
+      }
+      function makeComposer(){
+        composer?.close();composerRoot.replaceChildren();
+        if(selected)composer=window.JmnPublishing.mount(composerRoot,{account:selected,composerOnly:true,approvedRequest:contentRequest(selected.id),connect:()=>startInstagramConnect(true),request:command=>libraryRequest(command?'/api/social/publishing':'/api/social/publishing?account='+encodeURIComponent(selected.id),command?{...command,accountId:selected.id}:undefined)});
+      }
+      picker.onchange=()=>{selected=active.find(a=>a.id===picker.value);makeComposer();};makeComposer();
+      const view=window.JmnPublishing.mountContent(root,{library:true,request:command=>contentRequest(selected?.id)(command),listRequest:filters=>libraryRequest('/api/social/media-library?'+new URLSearchParams(filters)),onPost:active.length?asset=>composer.compose(asset):null});
+      publishingViews.push({close(){view.close();composer?.close();}});return;
+    }
     if(!connected){
       const contentRoot=document.createElement('div');accountsEl.append(contentRoot);
       publishingViews.push(window.JmnPublishing.mountContent(contentRoot,{request:contentRequest(null)}));
@@ -524,6 +548,7 @@
       renderAccounts(accounts);
       setFeedback(accounts.some(account => account?.status === 'active') ? 'Instagram connected.' : 'Connection status updated.', accounts.some(account => account?.status === 'active') ? 'success' : '');
     } catch {
+      if(libraryMode && sessionToken)renderAccounts([]);
       setFeedback('Unable to load Instagram connection status. Try again.', 'error');
     } finally {
       if (sessionToken) refreshBtn.disabled = false;
