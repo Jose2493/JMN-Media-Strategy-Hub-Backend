@@ -79,3 +79,9 @@
 @media(forced-colors:active){.workspace-avatar,.channel-status{border-color:CanvasText}.state-marker{background:CanvasText}.stage[data-state=unknown] .state-marker{border-color:CanvasText}}
 /* Keep the fictional narrow iframe centered without altering production sizing. */
 body:has(#frame-width)>#jmn-client-cockpit{max-width:100%;margin-inline:auto}
+
+/* Desktop structure fills the portal; prose retains its readable line length. */
+@media(min-width:561px){
+ .cockpit{max-width:100%}
+ .attention-copy .detail{max-width:70ch}
+}
