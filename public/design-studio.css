@@ -1,0 +1,1 @@
+*{box-sizing:border-box}body{margin:0;background:#0b0b0f;color:#e8e8ec;font-family:system-ui,sans-serif}#studio-status{padding:40px;text-align:center;color:#8a8a95}#studio-status[hidden]{display:none}#studio:empty{display:none}#studio{display:contents}
