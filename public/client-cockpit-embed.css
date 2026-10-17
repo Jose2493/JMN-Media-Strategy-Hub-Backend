@@ -1,0 +1,6 @@
+/* Parent-side SuiteDash styles, scoped to the dedicated cockpit block only. */
+#jmn-client-cockpit{display:block;width:100%;max-width:100%;border:0}
+@media(max-width:560px){
+  #client-page-view:has(#jmn-client-cockpit){margin-inline:0!important}
+  .cbe-block-content-text:has(#jmn-client-cockpit){padding-inline:0!important}
+}
