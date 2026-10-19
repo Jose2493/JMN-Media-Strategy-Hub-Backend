@@ -1,3 +1,4 @@
+import {installStrategistActions} from './strategist-actions-view.js';
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
@@ -26,7 +27,7 @@ let pendingConversation=null,pendingDraft='',draftOnlyIfEmpty=false;
 const node=(tag,text,cls)=>{const el=document.createElement(tag);el.textContent=text;if(cls)el.className=cls;return el;};
 const status=text=>{$('status').textContent=text;$('status').hidden=!text;};
 function setBusy(value){busy=value;document.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=value || !token);}
-function lock(message){finishReveal?.();token=null;clearTimeout(expiryTimer);clearTimeout(renewTimer);$('workspace').hidden=true;$('gate').hidden=false;$('gate-text').textContent=message;document.querySelectorAll('dialog[open]').forEach(el=>el.close());setBusy(false);}
+function lock(message){actions.clear();finishReveal?.();token=null;clearTimeout(expiryTimer);clearTimeout(renewTimer);$('workspace').hidden=true;$('gate').hidden=false;$('gate-text').textContent=message;document.querySelectorAll('dialog[open]').forEach(el=>el.close());setBusy(false);}
 function installToken(value){
  try{const payload=JSON.parse(atob(value.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));const remaining=payload.exp*1000-Date.now();if(!Number.isFinite(remaining)||remaining<=0||remaining>3600000)throw Error();token=value;clearTimeout(expiryTimer);expiryTimer=setTimeout(()=>lock('Your session expired. Reopen this page from your client portal.'),remaining);return true;}catch{lock('Please reopen Strategist from your client portal.');return false;}
 }
@@ -59,7 +60,7 @@ function heading(metadata){
   if(snap.post.permalink){const u=new URL(snap.post.permalink);if(u.protocol==='https:'&&['www.instagram.com','instagram.com'].includes(u.hostname)){const a=node('a','View post ↗');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';$('context').append(a);}}
  }
 }
-function showWelcome(){nextCursor=null;$('messages').replaceChildren();$('welcome').hidden=false;$('input-box').value='';heading(null);status('');}
+function showWelcome(){actions.clear();nextCursor=null;$('messages').replaceChildren();$('welcome').hidden=false;$('input-box').value='';heading(null);status('');actions.refresh();}
 function addMessage(role,text){const el=node('div',text,'msg '+(role==='user'?'user':'assistant'));$('messages').append(el);return el;}
 async function revealReply(text) {
  const log=$('messages');
@@ -99,8 +100,9 @@ function olderButton(){
  };$('messages').prepend(b);
 }
 async function readThread(id){
+ actions.clear();
  const data=await api('/api/strategist?conversation='+encodeURIComponent(id));conversationId=id;campaignId=data.metadata?.campaign_id || null;heading(data.metadata);$('messages').replaceChildren();
- for(const m of data.messages)addMessage(m.role,m.content);$('welcome').hidden=data.messages.length>0;nextCursor=data.nextCursor;olderButton();renderSidebar();$('messages').scrollTop=$('messages').scrollHeight;
+ for(const m of data.messages)addMessage(m.role,m.content);$('welcome').hidden=data.messages.length>0;nextCursor=data.nextCursor;olderButton();renderSidebar();actions.refresh();$('messages').scrollTop=$('messages').scrollHeight;
 }
 async function openThread(id){if(busy)return;setBusy(true);status('');try{await readThread(id);$('input-box').value='';}catch(e){status(e.message);}finally{setBusy(false);}}
 async function send(event){event?.preventDefault();const text=$('input-box').value.trim();if(!text||busy||!token)return;
@@ -110,7 +112,7 @@ async function send(event){event?.preventDefault();const text=$('input-box').val
   $('welcome').hidden=true;user=addMessage('user',text);user.classList.add('pending');typing=node('div','Considering your context…','typing');$('messages').append(typing);$('messages').scrollTop=$('messages').scrollHeight;
   const data=await api('/api/chat',{message:text,conversationId});
   if(data.conversationId!==conversationId)throw Error('Conversation changed. Reopen it to see the saved reply.');
-  user.classList.remove('pending');typing.remove();$('input-box').value='';await revealReply(data.reply);
+  user.classList.remove('pending');typing.remove();$('input-box').value='';await revealReply(data.reply);actions.refresh();
   if(!token)return;
   try{await refreshList();}catch{status('Reply saved. The sidebar could not refresh; reopen the workspace to update it.');}
  }catch(e){user?.remove();typing?.remove();status(e.message);$('input-box').value=text;}finally{setBusy(false);if(token&&!window.matchMedia('(pointer:coarse)').matches)$('input-box').focus();}
@@ -143,6 +145,8 @@ async function exchange(){
  try{const res=await fetch('/api/session-exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bootstrapToken:bootstrap}),cache:'no-store'});if(!res.ok)throw Error();const data=await res.json();if(!installToken(data.sessionToken))return;if(!initialized){initialized=true;await start();}clearTimeout(renewTimer);renewTimer=setTimeout(exchange,Math.max(1000,(data.expiresInSeconds-60)*1000));}
  catch{lock('Unable to start your session. Reopen Strategist from your client portal.');}
 }
+const actions=installStrategistActions({api,container:$('messages'),getConversation:()=>conversationId,onRequestOpen:()=>{$('welcome').hidden=true;}});
+$('request-production').onclick=()=>{if(!busy&&token)actions.request();};
 setBusy(true);
 if(embedded && window.parent!==window){
  window.addEventListener('message',event=>{

@@ -1,0 +1,9 @@
+export default function handler(req,res){
+ res.setHeader('Cache-Control','private, no-store');res.setHeader('X-Robots-Tag','noindex, nofollow');res.setHeader('Referrer-Policy','no-referrer');
+ if(process.env.VERCEL_ENV!=='preview'||process.env.VERCEL_TARGET_ENV==='production')return res.status(404).send('Not found');
+ if(req.method!=='GET'||req.headers.authorization||Object.keys(req.query||{}).some(k=>k!=='view')||(req.query?.view&&req.query.view!=='inner'))return res.status(400).send('Invalid fixture request');
+ res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'self'; frame-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");
+ res.setHeader('Content-Type','text/html; charset=utf-8');
+ const inner=req.query?.view==='inner';
+ return res.status(200).send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Strategist Actions · Fictional Preview QA</title><link rel="stylesheet" href="/strategist.css"><script type="module" src="/strategist-actions-qa.js"></script></head><body class="actions-qa"><p>Fictional Preview QA · No client data, network requests or saved submissions</p>${inner?'<label>Scenario <select id="scenario"><option value="authorized">Authorized + incomplete onboarding</option><option value="unauthorized">Unauthorized</option><option value="failure">Submission failure</option></select></label><button id="qa-request">Request production</button><main id="qa-actions"></main>':'<label>Width <select id="qa-width"><option value="100%">Desktop</option><option value="390px">390px mobile</option><option value="320px">320px narrow</option></select></label><iframe id="qa-actions-frame" title="Actions preview" src="/api/qa/strategist-actions?view=inner"></iframe>'}</body></html>`);
+}
