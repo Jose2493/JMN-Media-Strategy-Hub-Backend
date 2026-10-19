@@ -23,6 +23,13 @@ not a price, service-area promise or booking. The client reviews all fields and 
 change the suggested approach before explicitly submitting. No content, campaigns,
 contracts, payments or appointments are created by this flow.
 
+Location hints are deliberately bounded: Boston-area city hints may suggest
+On-Location; explicit remote intent or clear long-distance travel hints may suggest
+Remote. Broad locations such as Massachusetts, unknown locations and incomplete
+shoot details remain neutral and require the client to select an approach. These
+hints do not determine coverage or distance. Client selections survive another
+edit/review cycle; JMN still confirms location, feasibility, scope and pricing.
+
 ## Review queue and rollout
 
 The additive migration 20261019040000_production_requests.sql is included but NOT
