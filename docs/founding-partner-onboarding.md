@@ -79,6 +79,9 @@ Do not use a fixed height as the final integration. The child already reports it
 natural height on step/content changes, resize and responsive reflow; the helper
 checks message source/origin and grows or shrinks the iframe. Portal scrolling
 then owns the document. Do not install this on live Home during Preview QA.
+For a native SuiteDash iframe block, the helper also releases its direct wrapper's
+aspect-ratio padding and clipping and puts the iframe in normal document flow.
+Without that, a reported iframe height can still exceed the clipped wrapper.
 
 Onboarding width is scoped to `#cockpit` while its direct child is `.fp`: the shell
 fills the available portal width with small outer gutters, while prose and feedback

@@ -10,6 +10,15 @@
   frame.style.maxWidth='100%';
   frame.style.maxHeight='none';
   frame.setAttribute('scrolling','no');
+  // SuiteDash's native iframe block otherwise keeps an aspect-ratio box and
+  // absolutely positions the child, clipping even a correctly reported height.
+  const wrapper=frame.parentElement;
+  if(wrapper?.classList.contains('cbe-block-iframe-wrapper')){
+    wrapper.style.padding='0';
+    wrapper.style.height='auto';
+    wrapper.style.overflow='visible';
+    frame.style.position='static';
+  }
   window.addEventListener('message',event=>{
     if(event.source!==frame.contentWindow||event.origin!==origin||event.data?.type!=='jmn:cockpit-height')return;
     const height=event.data.height;
