@@ -67,6 +67,23 @@ fallback tenant exists. This avoids silently enabling a public plan.
 
 ## QA
 
+### SuiteDash iframe integration
+
+Use the existing page-scoped `client-cockpit-embed.js` helper on the portal page,
+with `id="jmn-client-cockpit"` on the actual iframe (not its wrapper). Load the
+helper from the same reviewed Preview as the iframe during QA. A SuiteDash native
+iframe block may omit that ID; in that case the QA page installer must locate the
+single iframe with the exact Preview origin and `/client-cockpit.html` path and
+assign the ID before loading the helper. Never match or copy another page's token.
+Do not use a fixed height as the final integration. The child already reports its
+natural height on step/content changes, resize and responsive reflow; the helper
+checks message source/origin and grows or shrinks the iframe. Portal scrolling
+then owns the document. Do not install this on live Home during Preview QA.
+
+Onboarding width is scoped to `#cockpit` while its direct child is `.fp`: the shell
+fills the available portal width with small outer gutters, while prose and feedback
+retain readable limits. Returning to Home restores the existing cockpit layout.
+
 `/api/qa/founding-partner` runs only in Vercel Preview. It uses fictional context
 for Semper/Company and Riany/Project labels, plus unauthorized, missing-context,
 and save-error scenarios. No credentials, network calls, real feedback or links
