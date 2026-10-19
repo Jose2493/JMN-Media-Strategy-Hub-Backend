@@ -101,6 +101,18 @@ test('parent sizing accepts only its own iframe origin/source and valid heights,
  assert.equal(requests.length,1);events.load();events.resize();assert.equal(requests.length,3);assert.equal(requests[0][1],'https://preview.example');
 });
 
+test('SuiteDash native wrapper follows reported height instead of clipping an absolute iframe',()=>{
+ for(const native of [true,false]){
+  let receive;
+  const wrapper={classList:{contains:name=>native&&name==='cbe-block-iframe-wrapper'},style:{padding:'56.25% 0 0',height:'450px',overflow:'hidden'}};
+  const frame={src:'https://preview.example/client-cockpit.html',parentElement:wrapper,contentWindow:{postMessage(){}},style:{position:'absolute'},setAttribute(){},addEventListener(){}};
+  vm.runInNewContext(readFileSync(new URL('../public/client-cockpit-embed.js',import.meta.url),'utf8'),{URL,document:{getElementById:()=>frame},window:{addEventListener:(type,fn)=>{if(type==='message')receive=fn;}}});
+  if(native){assert.equal(wrapper.style.padding,'0');assert.equal(wrapper.style.height,'auto');assert.equal(wrapper.style.overflow,'visible');assert.equal(frame.style.position,'static');}
+  else{assert.equal(wrapper.style.height,'450px');assert.equal(wrapper.style.padding,'56.25% 0 0');assert.equal(frame.style.position,'absolute');}
+  for(const height of [1500,400]){receive({origin:'https://preview.example',source:frame.contentWindow,data:{type:'jmn:cockpit-height',height}});assert.equal(frame.style.height,height+'px');}
+ }
+});
+
 test('height reporting includes document content and remeasures after reflow, late parent setup and shrink',()=>{
  let height=1250,queued;const events={},sent=[],observed=[];
  const root={getBoundingClientRect:()=>({top:0,bottom:height}),get scrollHeight(){return height;}};
