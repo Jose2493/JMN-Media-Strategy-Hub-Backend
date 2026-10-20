@@ -9,7 +9,7 @@ const source=file=>readFileSync(new URL('../public/'+file,import.meta.url),'utf8
 test('page-scoped parent rejects wrong origins, source windows, channels and invalid heights; grows and shrinks',()=>{
  const listeners={},sent=[],wrapper={style:{},classList:{contains:c=>c==='cbe-block-iframe-wrapper'}};
  const frame=kind=>({dataset:{jmnWorkspace:kind},src:'https://preview.example/'+kind,style:{},parentElement:wrapper,contentWindow:{postMessage:(data,origin)=>sent.push({data,origin})},setAttribute(){},addEventListener(type,fn){this[type]=fn;}});
- const strategy=frame('strategy'),social=frame('social'),unknown=frame('unknown');
+ const strategy=frame('strategy'),social=frame('social'),unknown=frame('__proto__');
  vm.runInNewContext(source('portal-embed.js'),{URL,location:{href:'https://portal.jmnmedia.com/'},document:{querySelectorAll:selector=>{assert.equal(selector,'iframe[data-jmn-workspace]');return [strategy,social,unknown];}},window:{addEventListener:(type,fn)=>{(listeners[type]??=[]).push(fn);},visualViewport:{addEventListener(){}}}});
  const send=(height,{origin='https://preview.example',from=strategy.contentWindow,channel='strategy'}={})=>listeners.message.forEach(fn=>fn({source:from,origin,data:{type:`jmn:${channel}-height`,height}}));
  send(900,{origin:'https://wrong.example'});send(900,{from:{}});send(900,{channel:'social'});for(const h of [0,-1,1.2,'900',1000001,NaN,Infinity])send(h);

@@ -7,3 +7,7 @@
 .fp-step,.fp-skip{min-height:44px;min-width:44px}
 .fp-link{display:inline-flex;align-items:center;min-width:44px}
 @media(max-width:600px){.cockpit:has(>.fp){padding:4px}.cockpit>.fp{padding:20px}}
+/* Shared portal gutter; no changes to steps, terms, completion or feedback. */
+.cockpit:has(>.fp){padding:0}
+.cockpit>.fp{padding:24px var(--jmn-gutter,24px)}
+@media(max-width:600px){.cockpit>.fp{padding:20px 12px}}

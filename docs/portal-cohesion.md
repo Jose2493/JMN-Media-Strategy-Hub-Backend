@@ -47,3 +47,23 @@ changes. Entitlements are a separate internal design document and example JSON.
 Design Studio positioning remains inside the authorized editor response, never in
 the unauthenticated template shell. Onboarding terms, completion and feedback are
 unchanged. Fictional QA surfaces do not authenticate or reach external APIs.
+
+## Fictional Preview QA
+
+Open `/api/qa/portal-cohesion` on the reviewed Preview. This route fails closed in
+production, rejects credentials and unknown selectors, and blocks network requests
+with CSP. It renders the real workspace markup/styles or existing fixture renderers
+without loading production authentication/integration scripts. Its native-wrapper
+fixture runs the actual parent helper. Design preview artwork is a placeholder;
+authorization/asset/export behavior is covered by the existing isolation suite.
+
+Browser checks cover desktop, wide desktop, 390px and 320px; all four pipeline
+states; long conversation growth and shrink; drawer/keyboard/composer reachability;
+Company/Project onboarding steps, feedback and completion; and authorized/denied
+Design controls. Social fixture saves/publishing intentionally remain disabled.
+Existing automated tests exercise actual save-payload behavior through mocks.
+
+The fictional portal is not proof of a live SuiteDash rollout. Install the parent
+helper only on an authorized QA page before production rollout, then validate
+actual SuiteDash margins and real-device keyboard/tap behavior. No live SuiteDash
+page was edited and no new QA identities or protection bypasses were created.

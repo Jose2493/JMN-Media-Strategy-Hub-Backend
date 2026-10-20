@@ -2,7 +2,7 @@
 (()=>{
  const channels={cockpit:'jmn:cockpit',strategy:'jmn:strategy',social:'jmn:social',design:'jmn:design'};
  for(const frame of document.querySelectorAll('iframe[data-jmn-workspace]')){
-  const channel=channels[frame.dataset.jmnWorkspace];
+  const channel=Object.hasOwn(channels,frame.dataset.jmnWorkspace)?channels[frame.dataset.jmnWorkspace]:null;
   if(!channel)continue;
   let origin;try{const url=new URL(frame.src,location.href);if(url.protocol!=='https:'&&url.hostname!=='localhost'&&url.hostname!=='127.0.0.1')continue;origin=url.origin;}catch{continue;}
   frame.style.display='block';frame.style.width='100%';frame.style.maxWidth='100%';frame.style.maxHeight='none';frame.setAttribute('scrolling','no');

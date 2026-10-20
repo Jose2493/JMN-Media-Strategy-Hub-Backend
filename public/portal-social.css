@@ -11,13 +11,15 @@ html,body,body:has(.dashboard-shell){background:#121316}
 .dashboard-shell .metric-card,.dashboard-shell .chart-card,.dashboard-shell .insight-card{min-width:0}
 .dashboard-shell .publishing-row-detail{flex:1;min-width:0;max-width:76ch}
 .dashboard-shell .publishing-tabs .btn,.dashboard-shell .publishing-row-actions .btn,.dashboard-shell .content-actions .btn,.dashboard-shell .approved-asset .btn{min-height:44px}
+.dashboard-shell .publishing-tabs .btn{flex:0 0 auto;white-space:nowrap;overflow-wrap:normal}
+.dashboard-shell .approved-content{background:transparent;border-radius:0;padding:0 0 24px;border-bottom:1px solid var(--pub-border,#303039)}
 @media(max-width:700px){
  .dashboard-shell{padding:20px 12px}
  .dashboard-shell .publishing-row{margin-inline:0;padding-inline:0;flex-direction:column;gap:12px}
  .dashboard-shell .publishing-row-detail{flex:auto;width:100%}
  .dashboard-shell .publishing-row-actions{align-self:stretch;flex-wrap:wrap}
  .dashboard-shell .publishing-tabs{display:flex;flex-wrap:wrap;width:100%}
- .dashboard-shell .publishing-tabs .btn{flex:1 1 auto;min-width:44px;white-space:normal}
+ .dashboard-shell .publishing-tabs .btn{flex:1 1 auto;min-width:44px;white-space:nowrap}
  .dashboard-shell .account .btn{min-height:44px;white-space:normal}
  .dashboard-shell .account-identity{min-width:0}
  .dashboard-shell .publishing-head{flex-wrap:wrap;gap:12px}
