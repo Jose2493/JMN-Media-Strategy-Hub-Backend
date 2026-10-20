@@ -1,0 +1,8 @@
+/* Fictional QA shell only. Not loaded by any authenticated production page. */
+.cohesion-tools{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px;font:12px system-ui;background:#292936;color:#e4e0ee}
+.cohesion-tools label{display:flex;gap:8px;align-items:center}.cohesion-tools select{font:inherit;background:#232332;color:inherit;padding:10px;border:1px solid #666074;border-radius:6px}
+.cohesion-shell{display:grid;grid-template-columns:180px minmax(0,1fr)}.cohesion-shell>aside{padding:24px 16px;color:#c0b9d0;font:14px/2 system-ui;border-right:1px solid #444050}.cohesion-shell small{font-size:11px}
+#qa-canvas{min-width:0;padding:12px;background:#232332}#qa-canvas iframe{height:200px;max-width:100%;margin-inline:auto}
+[data-qa-view]{border:0}.cohesion-shell .cbe-block-iframe-wrapper{position:relative;padding-bottom:56.25%;overflow:hidden}.cohesion-shell .cbe-block-iframe-wrapper>iframe{position:absolute;inset:0}
+.qa-design-placeholder{display:grid;place-items:center;min-height:320px;color:#494256;font-size:24px;line-height:1.5;text-align:center;padding:32px}
+@media(max-width:768px){.cohesion-shell{grid-template-columns:minmax(0,1fr)}.cohesion-shell>aside{display:none}#qa-canvas{padding:0}}

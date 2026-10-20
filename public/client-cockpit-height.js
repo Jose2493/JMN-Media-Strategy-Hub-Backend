@@ -1,5 +1,5 @@
 // Layout metadata only. Never send session or company data to the parent.
-export function observeCockpitHeight(root, origins) {
+export function observeCockpitHeight(root, origins, channel='jmn:cockpit') {
   if (window.parent === window) return;
   let pending = false;
   const publish = () => {
@@ -13,7 +13,7 @@ export function observeCockpitHeight(root, origins) {
       root.getBoundingClientRect().top + window.scrollY + root.scrollHeight
     ));
     if (height > 0) for (const origin of origins) {
-      window.parent.postMessage({type:'jmn:cockpit-height', height}, origin);
+      window.parent.postMessage({type:channel+'-height', height}, origin);
     }
   };
   const schedule = () => {
@@ -28,7 +28,7 @@ export function observeCockpitHeight(root, origins) {
   window.visualViewport?.addEventListener('resize', schedule);
   window.addEventListener('message', event => {
     if (event.source === window.parent && origins.includes(event.origin) &&
-        event.data?.type === 'jmn:cockpit-measure') schedule();
+        event.data?.type === channel+'-measure') schedule();
   });
   document.fonts?.ready.then(schedule);
   schedule();

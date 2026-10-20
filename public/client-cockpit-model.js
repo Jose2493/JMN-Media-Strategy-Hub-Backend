@@ -13,7 +13,8 @@ export function cockpitModel(data) {
     : data.approved > 0 ? 'Put approved work to use. Choose one piece that supports your goal and plan its next outing.'
     : data.scheduled > 0 ? 'Your publishing plan is moving. Shape your next useful story with your strategist.'
     : 'Start with one goal. Bring your audience, your offer, and one question to Strategy Session.';
-  return {name:data.company?.business_name || 'Your workspace',attention,incomplete,pulse,
+  const priorityTitle=data.review>0?'Review your next piece of content':data.drafts>0?'Move one draft forward':data.approved>0?'Put approved content to work':'Shape your next useful story';
+  return {name:data.company?.business_name || 'Your workspace',attention,incomplete,pulse,priorityTitle,
     action:attention.length || data.approved > 0 ? 'social':'strategy',
     status:[data.review===null?'Reviews unavailable':`${data.review} awaiting review`,data.scheduled===null?'Schedule unavailable':`${data.scheduled} scheduled`,data.instagram===null?'Instagram status unavailable':data.instagram.attention?'Instagram needs attention':data.instagram.connected?'Instagram connected':'Instagram not connected'].join(' · '),
     pipeline:[['In Review',data.review],['Approved',data.approved],['Scheduled',data.scheduled],['Published',data.published]]};

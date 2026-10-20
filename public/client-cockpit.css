@@ -85,3 +85,29 @@ body:has(#frame-width)>#jmn-client-cockpit{max-width:100%;margin-inline:auto}
  .cockpit{max-width:100%}
  .attention-copy .detail{max-width:70ch}
 }
+
+/* Command hierarchy: a single priority, open operational rows, then the pipeline. */
+:root{background:#232332;--line:#414052;--accent:#c7b4fa}
+.cockpit{width:100%;max-width:none;padding:24px var(--jmn-gutter,20px);min-width:0}
+.workspace-header{grid-template-columns:44px minmax(0,1fr)}
+.workspace-avatar{width:44px;height:44px;border-radius:8px;font-size:16px;background:transparent}
+.workspace-header .summary{padding-block:12px;border-bottom:1px solid var(--line);gap:10px 24px}
+.summary-item{font-variant-numeric:tabular-nums;font-size:13px}
+.quick{margin:12px 0 24px;gap:8px}
+.quick .action{border-color:transparent;padding-inline:10px;color:var(--muted);background:transparent}
+.quick .action:hover{color:#f5f5fc;background:#ffffff06}
+.command-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;border-bottom:1px solid var(--line);padding-bottom:24px}
+.command-grid .pulse{border:0;padding:0;min-width:0}
+.pulse-heading{max-width:none;align-items:flex-start}
+.pulse h2{font-size:clamp(23px,2.5vw,32px);line-height:1.18;max-width:28ch;margin:8px 0 12px}
+.pulse .pulse-copy{max-width:60ch;font-size:15px;line-height:1.65;margin-bottom:18px}
+.pulse .actions{gap:10px 20px;align-items:center}
+.pulse .actions .primary{min-height:48px;font-size:14px}
+.command-grid .attention{padding:0;min-width:0}
+.attention h2,.pipeline h2{font-size:16px;margin-bottom:12px}
+.attention li a{padding:12px 0;min-height:68px}
+.attention li:last-child{border-bottom:0}
+.pipeline{padding-top:24px}
+.stage{padding-block:20px}
+@media(min-width:1000px){.command-grid:has(.attention){grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:clamp(24px,4vw,64px)}.command-grid .attention{border-left:1px solid var(--line);padding-left:24px}}
+@media(max-width:560px){.cockpit{padding:20px 12px}.quick{display:flex;margin-bottom:22px;gap:4px}.quick .action{font-size:12px;padding-inline:8px}.command-grid{gap:24px}.stage{padding-inline:12px}.pulse .actions{align-items:flex-start;flex-direction:column}.pulse .actions .primary{width:100%}}

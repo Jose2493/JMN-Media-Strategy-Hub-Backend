@@ -41,7 +41,7 @@ export function renderCockpit(root,data,{navigateDesign,qa=false}={}) {
   const header=node('header',null,'workspace-header');
   const avatar=node('span',workspaceInitials(data.company?.business_name),'workspace-avatar');avatar.setAttribute('aria-hidden','true');
   const identity=node('div',null,'workspace-identity');
-  identity.append(node('p','Your workspace','eyebrow'),node('h1',model.name),node('p','Here’s where things stand.','muted'));
+  identity.append(node('p','JMN Media Partner · Your workspace','eyebrow'),node('h1',model.name),node('p','Your priorities, content and next move.','muted'));
   header.append(avatar,identity);
   const summary=node('p',null,'summary');
   const channelState=data.instagram===null?'unknown':data.instagram.attention?'attention':data.instagram.connected?'connected':'offline';
@@ -52,7 +52,7 @@ export function renderCockpit(root,data,{navigateDesign,qa=false}={}) {
   header.append(summary);root.append(header);
 
   const quick=node('nav',null,'quick');quick.setAttribute('aria-label','Quick actions');
-  quick.append(link('Strategy Session ↗','strategy','action primary'),link('Social Center ↗','social','action'));
+  quick.append(link('Strategy Session ↗','strategy','action'),link('Social Center ↗','social','action'));
   if(data.design===true){const b=node('button','Design Studio ↗','action');b.type='button';b.addEventListener('click',()=>qa?feedback.textContent='Preview only: opens authorized Design Studio.':navigateDesign?.());quick.append(b);}
   root.append(quick);
   const feedback=node('p',null,'notice');feedback.setAttribute('role','status');root.append(feedback);
@@ -61,12 +61,15 @@ export function renderCockpit(root,data,{navigateDesign,qa=false}={}) {
     const retry=node('button','Retry','action');retry.type='button';retry.onclick=()=>root.dispatchEvent(new Event('cockpit:retry'));warning.append(retry);root.append(warning);
   }
 
+  const command=node('div',null,'command-grid');root.append(command);
   const pulse=node('section',null,'pulse');
   const pulseHeading=node('div',null,'pulse-heading'),pulseTitle=node('div');
-  pulseTitle.append(node('p','Today’s move','eyebrow'),node('h2','Daily Pulse — by JMN'));
+  pulseTitle.append(node('p','Today’s priority · Daily Pulse by JMN','eyebrow'),node('h2',model.priorityTitle));
   pulseHeading.append(pulseTitle,icon('move','icon pulse-direction'));
   pulse.append(pulseHeading,node('p',model.pulse,'pulse-copy'));
-  const actions=node('div',null,'actions');actions.append(link('Ask Strategist ↗','strategy'),link('Turn into action →',model.action));pulse.append(actions);root.append(pulse);
+  const actions=node('div',null,'actions');actions.append(link(model.action==='social'?'Open Social Center →':'Plan in Strategy Session →',model.action,'action primary'));
+  if(model.action!=='strategy')actions.append(link('Ask Strategist ↗','strategy'));
+  pulse.append(actions);command.append(pulse);
 
   if(model.attention.length){
     const section=node('section',null,'attention');section.append(node('h2','Needs Your Attention'));
@@ -76,7 +79,7 @@ export function renderCockpit(root,data,{navigateDesign,qa=false}={}) {
       text.append(node('strong',item.title),node('span',item.detail,'detail'));
       a.append(icon('attention','icon attention-marker'),text,icon('move','icon row-arrow'));li.append(a);list.append(li);
     }
-    section.append(list);root.append(section);
+    section.append(list);command.append(section);
   }
 
   const pipeline=node('section',null,'pipeline');pipeline.append(node('h2','Content Pipeline'));

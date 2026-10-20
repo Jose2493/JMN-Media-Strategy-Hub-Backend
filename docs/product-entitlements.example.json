@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "proposal-1",
+  "status": "documentation_only",
+  "runtimeEnforcement": false,
+  "principle": "LIMIT COST, NOT HABIT",
+  "quantitativePolicy": {"state": "unresolved", "unlimitedAllowed": false},
+  "tiers": {
+    "essential": {
+      "purpose": "Run the core JMN media workflow",
+      "workspaceAllocation": {"policy": "essential.primary", "state": "unresolved", "kinds": ["company", "project"]},
+      "seatAllocation": {"policy": "essential.primary-seat", "state": "unresolved"},
+      "included": ["home", "daily_pulse", "strategy_session", "instagram", "social_core", "approved_content", "content_review", "drafts", "publishing", "strategist_core"],
+      "actionsAllowance": {"policy": "essential.actions", "state": "unresolved"},
+      "reportingCadence": "monthly_strategy_brief",
+      "supportLevel": "core",
+      "premiumAddOns": {"state": "unresolved"}
+    },
+    "growth": {
+      "purpose": "Connect more of the business and increase operational leverage",
+      "inherits": "essential",
+      "workspaceAllocation": {"policy": "growth.additional-workspaces", "state": "unresolved"},
+      "seatAllocation": {"policy": "growth.additional-seats", "state": "unresolved"},
+      "included": ["production_requests", "campaign_analysis", "document_briefs"],
+      "conditional": {"design_studio": "active_template_and_explicit_company_grant"},
+      "actionsAllowance": {"policy": "growth.actions", "state": "unresolved"},
+      "futureIntegrations": ["google_business_profile", "tiktok"],
+      "reportingCadence": "weekly_strategic_guidance",
+      "supportLevel": "priority"
+    },
+    "signature": {
+      "purpose": "Premium media operating partnership",
+      "inherits": "growth",
+      "workspaceAllocation": {"policy": "signature.brands-projects", "state": "unresolved"},
+      "seatAllocation": {"policy": "signature.seats", "state": "unresolved"},
+      "included": ["advanced_intelligence", "production_planning_concierge", "early_access_eligibility"],
+      "actionsAllowance": {"policy": "signature.actions", "state": "unresolved"},
+      "futureIntegrations": ["linkedin", "commercially_reviewed_custom_integrations"],
+      "premiumAddOns": {"generationCredits": {"state": "unresolved", "requires": "verified_unit_economics", "futureExample": "higgsfield"}},
+      "reportingCadence": "premium_strategic_partnership",
+      "supportLevel": "white_glove_priority"
+    }
+  },
+  "authorizationFloor": ["verified_session", "current_company_membership", "resource_ownership", "existing_explicit_grants"],
+  "betaTransition": "preserve_existing_access_until_separately_reviewed_rollout"
+}

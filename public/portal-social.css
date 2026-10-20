@@ -1,0 +1,25 @@
+/* Integration only: publishing components, data, channel identity and actions stay intact. */
+html,body,body:has(.dashboard-shell){background:#121316}
+.portal-document body{min-height:0}
+.portal-document .gate{min-height:0;padding:48px 16px}
+.dashboard-shell{width:100%;max-width:none;margin:0;padding:24px var(--jmn-gutter,24px);overflow-wrap:anywhere}
+.dashboard-shell .header{margin-bottom:24px}
+.dashboard-shell .header p{max-width:var(--jmn-prose,70ch)}
+.dashboard-shell .publishing-section{background:transparent;border-radius:0;padding:0 0 24px;border-bottom:1px solid var(--pub-border,#303039)}
+.dashboard-shell .account,.dashboard-shell .account-block .account,.dashboard-shell .panel-head{background:transparent;border-radius:0;padding-inline:0}
+.dashboard-shell .metrics-grid,.dashboard-shell .overview-layout,.dashboard-shell .content-analysis{min-width:0}
+.dashboard-shell .metric-card,.dashboard-shell .chart-card,.dashboard-shell .insight-card{min-width:0}
+.dashboard-shell .publishing-row-detail{flex:1;min-width:0;max-width:76ch}
+.dashboard-shell .publishing-tabs .btn,.dashboard-shell .publishing-row-actions .btn,.dashboard-shell .content-actions .btn,.dashboard-shell .approved-asset .btn{min-height:44px}
+@media(max-width:700px){
+ .dashboard-shell{padding:20px 12px}
+ .dashboard-shell .publishing-row{margin-inline:0;padding-inline:0;flex-direction:column;gap:12px}
+ .dashboard-shell .publishing-row-detail{flex:auto;width:100%}
+ .dashboard-shell .publishing-row-actions{align-self:stretch;flex-wrap:wrap}
+ .dashboard-shell .publishing-tabs{display:flex;flex-wrap:wrap;width:100%}
+ .dashboard-shell .publishing-tabs .btn{flex:1 1 auto;min-width:44px;white-space:normal}
+ .dashboard-shell .account .btn{min-height:44px;white-space:normal}
+ .dashboard-shell .account-identity{min-width:0}
+ .dashboard-shell .publishing-head{flex-wrap:wrap;gap:12px}
+ .dashboard-shell .content-review-toolbar{flex-wrap:wrap}
+}
