@@ -1,5 +1,18 @@
 # Design Studio authorization review
 
+## Product definition
+
+JMN Design Studio is a controlled template-personalization workspace: **Authorized
+Templates**, **Customize approved designs**, **Brand-safe personalization**.
+JMN creates and protects the design. Clients personalize only fields explicitly
+prepared for that template: a name, flag, approved text, approved image/product
+variable or another configured input. This is not a freeform Canva-style editor.
+Do not imply arbitrary uploads, layers, layout changes or access to other templates.
+The current editor exposes its existing prepared name and country/flag fields;
+this positioning pass adds no variable types or editing powers. Copy and controls
+are returned only after server authorization. A tier concept never replaces the
+active template + exact company grant + verified session ownership checks.
+
 ## Incident and diagnosis
 
 The reported TEST workspace exposure occurred at the production hostname

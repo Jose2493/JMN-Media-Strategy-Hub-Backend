@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"><title>JMN AI Strategist</title><link rel="stylesheet" href="/strategist.css"><script type="module" src="/strategist.js"></script></head>
-<body>
+<body data-jmn-workspace="strategy">
 <div id="gate" role="status"><strong>JMN AI Strategist</strong><p id="gate-text">Opening your workspace…</p></div>
-<main id="workspace" hidden>
+<main id="workspace" data-jmn-surface hidden>
 <aside class="sidebar" aria-label="Campaign conversations">
 <div class="brand">JMN <span>STRATEGIST</span></div><p class="sidebar-note">Your thinking. Organized.</p>
 <button id="request-production" type="button">Request production ↗</button>
@@ -25,4 +25,5 @@
 <dialog id="navigation-drawer" aria-label="Campaigns and conversations"><button id="close-navigation" type="button" aria-label="Close navigation">✕ Close</button></dialog>
 <dialog id="campaign-dialog"><form id="campaign-form"><p class="eyebrow">A PLACE FOR THE PLAN</p><h2>New campaign</h2><label>Name<input id="campaign-input" maxlength="100" required placeholder="September membership drive"></label><label>Objective <span>(optional)</span><textarea id="campaign-objective" maxlength="1000" rows="3" placeholder="What do you want this campaign to achieve?"></textarea></label><p id="campaign-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-campaign">Cancel</button><button type="submit" class="primary">Create campaign</button></div></form></dialog>
 <dialog id="post-dialog"><form id="post-form"><p class="eyebrow">FROM SOCIAL CENTER</p><h2>Give this post a home.</h2><p>Choose where to save this conversation. Your strategist will receive the post's caption and a dated metrics snapshot.</p><label>Campaign<select id="post-campaign"></select></label><button type="button" id="post-new-campaign">＋ Create a campaign first</button><label>Conversation title<input id="post-title" maxlength="120" required value="Plan a follow-up to this Instagram post"></label><p id="post-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-post">Cancel</button><button type="submit" class="primary">Open conversation ↗</button></div></form></dialog>
+<link rel="stylesheet" href="/portal-language.css"><script type="module" src="/portal-surface.js"></script>
 </body></html>

@@ -44,3 +44,35 @@
 /* Contextual safe actions use open rows, without nested cards. */
 .strategist-actions,.production-request{width:100%;max-width:760px;align-self:flex-start;overflow-wrap:anywhere;flex-shrink:0}.strategist-action{border-top:1px solid #494052;padding:18px 0}.strategist-action strong{font-size:14px}.strategist-action p,.production-request p{font-size:13px;color:#bfb7d2;line-height:1.6}.strategist-action a{color:#d5beff;display:inline-flex;align-items:center;min-height:44px;font-size:13px}.strategist-action button,.production-request button{min-height:44px;margin:6px 8px 6px 0}.production-request label{display:block;font-size:13px;margin:16px 0}.production-request input,.production-request textarea,.production-request select{display:block;width:100%;min-width:0;padding:12px;margin-top:8px;font-size:16px}.production-request textarea{resize:vertical}.production-request dl{margin:20px 0}.production-request dt{font-size:12px;color:#bfb7d2;margin-top:14px}.production-request dd{margin:5px 0;white-space:pre-wrap}.production-request h2{font-size:24px}.production-suggestion{border-left:2px solid #b9a2f1;padding-left:14px}#request-production{min-height:44px}
 .actions-qa{padding:16px}.actions-qa>p{color:#bfb7d2;font-size:13px}.actions-qa select{padding:12px;max-width:100%}#qa-actions-frame{display:block;border:0;width:100%;height:1200px;margin-top:20px}#qa-actions{margin-top:20px}
+
+/* Portal document mode. The same-origin Social modal intentionally stays bounded. */
+.portal-document body{overflow:visible;background:#232332}
+.portal-document #gate{min-height:0;padding:40px 16px}
+.portal-document #workspace{height:auto;min-height:520px;align-items:start;background:#232332}
+.portal-document .sidebar{position:sticky;top:0;max-height:min(700px,100svh);min-height:0;background:transparent;padding:24px 16px;overflow-y:auto}
+.portal-document .chat-panel{min-height:520px;overflow:visible;background:transparent}
+.portal-document .chat-panel header{padding:20px var(--jmn-gutter,24px)}
+.portal-document #objective,.portal-document #context{max-height:none;overflow:visible;padding-inline:var(--jmn-gutter,24px)}
+.portal-document #messages{overflow:visible;flex:none;min-height:0;padding:24px var(--jmn-gutter,24px);gap:24px;overscroll-behavior:auto}
+.portal-document .msg{max-width:min(100%,76ch);font-size:15px;line-height:1.75}
+.portal-document .msg.assistant{border:0;background:transparent;padding:0}
+.portal-document .msg.user{max-width:min(90%,68ch)}
+.portal-document #welcome{overflow:visible;max-width:70ch;padding:32px var(--jmn-gutter,24px)}
+.portal-document #composer{margin:16px var(--jmn-gutter,24px) 0;padding:8px;border-radius:12px;gap:8px}
+.portal-document #input-box{font-size:16px;min-height:48px}
+.portal-document #send-btn{min-height:48px}
+.portal-document .composer-note{font-size:11px;margin:8px var(--jmn-gutter,24px) 20px}
+.portal-document #navigation-drawer .sidebar{position:static;min-height:0;max-height:none}
+@media(max-width:768px){
+ .portal-document #workspace{display:flex;height:auto;min-height:520px}
+ .portal-document .chat-panel header{padding:12px 8px;gap:8px}
+ .portal-document #messages{padding:20px 12px;gap:24px}
+ .portal-document .msg{font-size:16px;line-height:1.7}
+ .portal-document #welcome{padding:28px 16px}
+ .portal-document #context,.portal-document #objective{padding:12px}
+ .portal-document #composer{margin:12px 8px 0;align-items:flex-end}
+ .portal-document #input-box{padding:8px;min-height:52px;max-height:180px}
+ .portal-document #send-btn{min-width:52px;min-height:48px;border-radius:8px}
+ .portal-document .composer-note{margin-inline:12px}
+ .portal-document .strategist-actions,.portal-document .production-request{max-width:100%}
+}

@@ -129,11 +129,11 @@ test('height reporting includes document content and remeasures after reflow, la
  events.message({source:parent,origin:'https://evil.example',data:{type:'jmn:cockpit-measure'}});assert.equal(queued,null);
  events.message({source:parent,origin:'https://portal.jmnmedia.com',data:{type:'jmn:cockpit-measure'}});assert.equal(typeof queued,'function');queued();assert.equal(sent.at(-1)[1],'https://portal.jmnmedia.com');
 });
-test('attention links cover whole row and retain navigation; Strategy remains the sole primary action',()=>{
+test('attention links retain navigation and Daily Pulse is the sole primary action',()=>{
  const previous=globalThis.document;globalThis.document={createElement:t=>new Element(t),createElementNS:(_,tag)=>new Element(tag)};
- try{const root=new Element('main');renderCockpit(root,{...empty,review:2,drafts:1,design:true});const nodes=flatten(root);assert.equal(nodes.filter(n=>n.className==='action primary').length,1);assert.equal(nodes.find(n=>n.className==='action primary').textContent,'Strategy Session ↗');
+ try{const root=new Element('main');renderCockpit(root,{...empty,review:2,drafts:1,design:true});const nodes=flatten(root);assert.equal(nodes.filter(n=>n.className==='action primary').length,1);assert.equal(nodes.find(n=>n.className==='action primary').textContent,'Open Social Center →');
  const rows=nodes.filter(n=>n.tag==='li');assert.equal(rows.length,2);for(const row of rows){assert.equal(row.children.length,1);assert.equal(row.children[0].tag,'a');assert.match(row.children[0].href,/174976$/);}
- assert.ok(nodes.some(n=>n.textContent==='Today’s move'));assert.ok(nodes.some(n=>n.textContent==='Open Social Center →'));
+ assert.ok(nodes.some(n=>n.textContent==='Today’s priority · Daily Pulse by JMN'));assert.ok(nodes.some(n=>n.textContent==='Review your next piece of content'));
  }finally{globalThis.document=previous;}
 });
 
