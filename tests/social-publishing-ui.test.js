@@ -113,3 +113,13 @@ test('new media uses original signed upload and post-now request',async()=>{
 test('schedule validation and activation guard prevent accidental requests',async()=>{
  for(const ready of [false,true]){const f=await setup({ready});click(f.root,'+ Create post');const d=find(f.body,n=>n.tag==='dialog');await click(d,'Schedule post');assert.equal(f.calls.filter(Boolean).length,0);assert.ok(find(d,n=>n.className==='publishing-warning').textContent);f.instance.close();}
 });
+
+test('library searches all history, paginates, retries errors and suppresses invalid posting',async()=>{
+ const body=new Element('body'),root=new Element('div');body.append(root);const window={confirm:()=>true};
+ vm.runInNewContext(source,{window,document:{body,createElement:tag=>new Element(tag)},setInterval,clearInterval,crypto:{randomUUID:()=> 'id'},Intl,URL,Image:class{}});
+ let fail=true;const calls=[];
+ const view=window.JmnPublishing.mountContent(root,{library:true,request:async()=>{},listRequest:async f=>{calls.push({...f});if(fail)throw Error('Try again');return {assets:[{id:'a',title:'History',kind:'IMAGE',status:'APPROVED',createdAt:'2026-01-01',projectLabel:'Launch'}],hasMore:true};}});
+ await tick();assert.ok(find(root,n=>n.textContent==='Try again'));fail=false;await click(root,'Retry');await tick();assert.ok(find(root,n=>n.textContent==='History'));assert.equal(find(root,n=>n.textContent==='Post this'),undefined);
+ const search=find(root,n=>n.attrs['aria-label']==='Search by title');search.value='History';const form=find(root,n=>n.tag==='form');form.onsubmit({preventDefault(){}});await tick();assert.equal(calls.at(-1).q,'History');
+ await click(root,'Next');await tick();assert.equal(calls.at(-1).page,'1');view.close();
+});
