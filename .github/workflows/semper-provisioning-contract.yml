@@ -1,0 +1,31 @@
+name: Inspect Semper provisioning contract
+on:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/semper-provisioning-contract.yml]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect schema constraints only
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          begin read only;
+          select table_name,column_name,is_nullable,column_default,data_type
+          from information_schema.columns
+          where table_schema='public' and table_name in ('companies','contacts')
+          order by table_name,ordinal_position;
+          select conrelid::regclass as table_name,conname,pg_get_constraintdef(oid) as definition
+          from pg_constraint
+          where connamespace='public'::regnamespace
+            and conrelid in ('public.companies'::regclass,'public.contacts'::regclass)
+          order by table_name,conname;
+          rollback;
+          SQL
